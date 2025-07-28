@@ -1,0 +1,65 @@
+﻿@page "/"
+@inject MyMauiApp.Services.IUsageStatsService UsageStatsService
+
+<h2>App Usage Today</h2>
+
+@if (!HasPermission)
+{
+    <p>This app needs access to usage stats.</p>
+    <button @onclick="OpenSettings">Grant Permission</button>
+}
+else if (AppUsages == null)
+{
+    <p>Loading...</p>
+}
+else if (AppUsages.Count == 0)
+{
+    <p>No usage data found today.</p>
+}
+else
+{
+    <ul style="list-style:none; padding-left:0;">
+        @foreach (var app in AppUsages)
+        {
+            <li style="margin-bottom:12px; display:flex; align-items:center;">
+                @if (app.IconBytes is not null)
+                {
+                    <img src="data:image/png;base64,@Convert.ToBase64String(app.IconBytes)" width="40" height="40" style="margin-right:12px;" />
+                }
+                <div>
+                    <div><strong>@app.AppName</strong> (@app.PackageName)</div>
+                    <div style="color:gray;">@FormatTime(app.TotalTimeInForeground)</div>
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<MyMauiApp.Services.AppUsageInfo>? AppUsages;
+    private bool HasPermission = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        HasPermission = UsageStatsService.HasUsagePermission();
+        if (HasPermission)
+        {
+            AppUsages = await UsageStatsService.GetAppUsageAsync();
+        }
+    }
+
+    void OpenSettings()
+    {
+        UsageStatsService.RequestUsageAccess();
+    }
+
+    string FormatTime(long milliseconds)
+    {
+        var time = TimeSpan.FromMilliseconds(milliseconds);
+        var parts = new List<string>();
+        if (time.Hours > 0) parts.Add($"{time.Hours} hour{(time.Hours > 1 ? "s" : "")}");
+        if (time.Minutes > 0) parts.Add($"{time.Minutes} minute{(time.Minutes > 1 ? "s" : "")}");
+        if (time.Seconds > 0) parts.Add($"{time.Seconds} second{(time.Seconds > 1 ? "s" : "")}");
+        return string.Join(", ", parts);
+    }
+}
