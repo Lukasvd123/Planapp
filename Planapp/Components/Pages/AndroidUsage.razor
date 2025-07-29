@@ -1,0 +1,279 @@
+﻿@page "/android-usage"
+@inject Planapp.Services.IUsageStatsService UsageStatsService
+@inject IJSRuntime JSRuntime
+
+<div class="page-header">
+    <h1>📱 App Usage Statistics</h1>
+    <p class="page-subtitle">Track your daily app usage and screen time</p>
+</div>
+
+@if (!HasPermission)
+{
+    <div class="permission-card">
+        <div class="permission-icon">🔒</div>
+        <div class="permission-content">
+            <h3>Permission Required</h3>
+            <p>To view your app usage statistics, please grant access to usage data in your device settings.</p>
+            <button class="btn btn-primary" @onclick="OpenSettings">
+                <span class="btn-icon">⚙️</span>
+                Grant Permission
+            </button>
+        </div>
+    </div>
+}
+else if (AppUsages == null)
+{
+    <div class="loading-card">
+        <div class="loading-spinner"></div>
+        <h3>Loading your usage data...</h3>
+        <p>This may take a moment</p>
+    </div>
+}
+else if (AppUsages.Count == 0)
+{
+    <div class="no-data-card">
+        <div class="no-data-icon">📊</div>
+        <h3>No Usage Data Available</h3>
+        <p>We couldn't find any app usage data. This might happen because:</p>
+        <ul>
+            <li>No apps were used recently</li>
+            <li>Usage statistics are still being collected</li>
+            <li>Permission was recently granted</li>
+        </ul>
+        <button class="btn btn-secondary" @onclick="RefreshData">
+            <span class="btn-icon">🔄</span>
+            Refresh Data
+        </button>
+    </div>
+}
+else
+{
+    <div class="stats-overview">
+        <div class="stat-card">
+            <div class="stat-number">@AppUsages.Count</div>
+            <div class="stat-label">Apps Used Today</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">@FormatTimeShort(AppUsages.Sum(a => a.TotalTimeInForeground))</div>
+            <div class="stat-label">Total Screen Time</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number">@FormatTimeShort(AppUsages.FirstOrDefault()?.TotalTimeInForeground ?? 0)</div>
+            <div class="stat-label">Most Used App</div>
+        </div>
+    </div>
+
+    <div class="section-header">
+        <h2>📈 App Usage Breakdown</h2>
+        <button class="btn-refresh" @onclick="RefreshData" disabled="@IsRefreshing">
+            <span class="refresh-icon @(IsRefreshing ? "spinning" : "")">🔄</span>
+            @(IsRefreshing ? "Refreshing..." : "Refresh")
+        </button>
+    </div>
+
+    <div class="usage-grid">
+        @{
+            var totalTime = AppUsages.Sum(a => a.TotalTimeInForeground);
+        }
+        @foreach (var app in AppUsages.Take(50))
+        {
+            var percentage = totalTime > 0 ? (double)app.TotalTimeInForeground / totalTime * 100 : 0;
+            var isTopApp = AppUsages.IndexOf(app) < 3;
+            
+            <div class="usage-card @(isTopApp ? "top-app" : "")">
+                <div class="app-header">
+                    <div class="app-icon-container">
+                        <LazyAppIcon PackageName="@app.PackageName" AppName="@app.AppName" />
+                        @if (isTopApp)
+                        {
+                            <div class="top-badge">@(AppUsages.IndexOf(app) + 1)</div>
+                        }
+                    </div>
+                    <div class="app-info">
+                        <h3 class="app-name">@app.AppName</h3>
+                        <p class="package-name">@app.PackageName</p>
+                    </div>
+                </div>
+                
+                <div class="usage-stats">
+                    <div class="primary-stat">@FormatTime(app.TotalTimeInForeground)</div>
+                    <div class="percentage-stat">@percentage.ToString("F1")% of total time</div>
+                    
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill @GetProgressColorClass(percentage)" 
+                                 style="width: @Math.Max(percentage, 2)%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        
+        @if (AppUsages.Count > 50)
+        {
+            <div class="show-more-card">
+                <div class="show-more-content">
+                    <h3>@(AppUsages.Count - 50) more apps</h3>
+                    <p>Showing top 50 most used apps</p>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<Planapp.Services.AppUsageInfo>? AppUsages;
+    private bool HasPermission = false;
+    private bool IsRefreshing = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        HasPermission = UsageStatsService.HasUsagePermission();
+        if (HasPermission)
+        {
+            AppUsages = await UsageStatsService.GetAppUsageAsync();
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        IsRefreshing = true;
+        AppUsages = null;
+        StateHasChanged();
+        await Task.Delay(800); // Show loading state
+        await LoadData();
+        IsRefreshing = false;
+        StateHasChanged();
+    }
+
+    void OpenSettings()
+    {
+        UsageStatsService.RequestUsageAccess();
+    }
+
+    string GetProgressColorClass(double percentage)
+    {
+        return percentage switch
+        {
+            >= 30 => "high-usage",
+            >= 15 => "medium-usage", 
+            >= 5 => "low-usage",
+            _ => "minimal-usage"
+        };
+    }
+
+    string FormatTime(long milliseconds)
+    {
+        var time = TimeSpan.FromMilliseconds(milliseconds);
+        var parts = new List<string>();
+        
+        if (time.TotalDays >= 1)
+        {
+            var days = (int)time.TotalDays;
+            parts.Add($"{days}d");
+            time = time.Subtract(TimeSpan.FromDays(days));
+        }
+        
+        if (time.Hours > 0) parts.Add($"{time.Hours}h");
+        if (time.Minutes > 0) parts.Add($"{time.Minutes}m");
+        if (time.Seconds > 0 && parts.Count == 0) parts.Add($"{time.Seconds}s");
+        
+        return parts.Count > 0 ? string.Join(" ", parts) : "0s";
+    }
+
+    string FormatTimeShort(long milliseconds)
+    {
+        var time = TimeSpan.FromMilliseconds(milliseconds);
+        
+        if (time.TotalHours >= 1)
+        {
+            return $"{time.TotalHours:F1}h";
+        }
+        else if (time.TotalMinutes >= 1)
+        {
+            return $"{(int)time.TotalMinutes}m";
+        }
+        else
+        {
+            return $"{(int)time.TotalSeconds}s";
+        }
+    }
+}
+
+@* Lazy Loading App Icon Component *@
+@code {
+    public class LazyAppIcon : ComponentBase
+    {
+        [Parameter] public string PackageName { get; set; } = "";
+        [Parameter] public string AppName { get; set; } = "";
+        
+        private string? IconDataUrl;
+        private bool IsLoading = true;
+        
+        protected override async Task OnInitializedAsync()
+        {
+            await LoadIcon();
+        }
+        
+        private async Task LoadIcon()
+        {
+            await Task.Run(() =>
+            {
+                try
+                {
+                    var iconBytes = Planapp.Platforms.Android.UsageStatsHelper.GetAppIcon(PackageName);
+                    if (iconBytes != null)
+                    {
+                        IconDataUrl = $"data:image/png;base64,{Convert.ToBase64String(iconBytes)}";
+                    }
+                }
+                catch
+                {
+                    // Icon loading failed
+                }
+                finally
+                {
+                    IsLoading = false;
+                    InvokeAsync(StateHasChanged);
+                }
+            });
+        }
+        
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            if (IsLoading)
+            {
+                builder.OpenElement(0, "div");
+                builder.AddAttribute(1, "class", "app-icon-loading");
+                builder.AddContent(2, "⏳");
+                builder.CloseElement();
+            }
+            else if (!string.IsNullOrEmpty(IconDataUrl))
+            {
+                builder.OpenElement(0, "img");
+                builder.AddAttribute(1, "src", IconDataUrl);
+                builder.AddAttribute(2, "class", "app-icon");
+                builder.AddAttribute(3, "alt", $"{AppName} icon");
+                builder.CloseElement();
+            }
+            else
+            {
+                builder.OpenElement(0, "div");
+                builder.AddAttribute(1, "class", "app-icon-fallback");
+                builder.AddContent(2, GetAppInitial(AppName));
+                builder.CloseElement();
+            }
+        }
+        
+        private string GetAppInitial(string appName)
+        {
+            if (string.IsNullOrEmpty(appName)) return "?";
+            return appName[0].ToString().ToUpper();
+        }
+    }
+}

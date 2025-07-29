@@ -4,24 +4,70 @@
     </div>
 </div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+<input type="checkbox" id="navToggle" class="navbar-toggler" />
+<label for="navToggle" class="navbar-toggler-label">
+    <span class="navbar-toggler-icon"></span>
+</label>
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+<div class="nav-scrollable">
     <nav class="flex-column">
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All" @onclick="CloseNav">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
+            <NavLink class="nav-link" href="counter" @onclick="CloseNav">
                 <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
+            <NavLink class="nav-link" href="weather" @onclick="CloseNav">
                 <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
             </NavLink>
         </div>
+        @if (DeviceInfo.Platform == DevicePlatform.Android)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="android-usage" @onclick="CloseNav">
+                    <span class="bi bi-phone-nav-menu" aria-hidden="true"></span> App Usage
+                </NavLink>
+            </div>
+        }
     </nav>
 </div>
+
+@code {
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Add JavaScript to handle backdrop click
+            JSRuntime.InvokeVoidAsync("eval", @"
+                document.addEventListener('DOMContentLoaded', function() {
+                    const navToggle = document.getElementById('navToggle');
+                    const navScrollable = document.querySelector('.nav-scrollable');
+
+                    // Close menu when clicking backdrop
+                    document.addEventListener('click', function(e) {
+                        if (navToggle && navToggle.checked &&
+                            !navScrollable.contains(e.target) &&
+                            !e.target.matches('.navbar-toggler-label') &&
+                            !e.target.matches('.navbar-toggler-icon')) {
+                            navToggle.checked = false;
+                        }
+                    });
+                });
+            ");
+        }
+    }
+
+    private void CloseNav()
+    {
+        // Close navigation on mobile when a link is clicked
+        JSRuntime.InvokeVoidAsync("eval", @"
+            const navToggle = document.getElementById('navToggle');
+            if (navToggle) navToggle.checked = false;
+        ");
+    }
+}

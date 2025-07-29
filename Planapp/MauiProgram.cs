@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Logging;
 using Planapp.Services;
-using Planapp.Platforms.Android;
+
 namespace Planapp
 {
     public static class MauiProgram
@@ -14,14 +14,18 @@ namespace Planapp
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 });
-            builder.Services.AddSingleton<IUsageStatsService, UsageStatsServiceImpl>();
 
+#if ANDROID
+            builder.Services.AddSingleton<IUsageStatsService, Platforms.Android.UsageStatsServiceImpl>();
+#else
+            builder.Services.AddSingleton<IUsageStatsService, Services.DefaultUsageStatsService>();
+#endif
 
             builder.Services.AddMauiBlazorWebView();
 
 #if DEBUG
-    		builder.Services.AddBlazorWebViewDeveloperTools();
-    		builder.Logging.AddDebug();
+            builder.Services.AddBlazorWebViewDeveloperTools();
+            builder.Logging.AddDebug();
 #endif
 
             return builder.Build();

@@ -1,0 +1,109 @@
+﻿
+
+   Source: C:\Users\Lukas\source\repos\Planapp
+
+Mode            Length Hierarchy                                                                                       
+----            ------ ---------                                                                                       
+d-----       727.57 KB [44;1mPlanapp[0m                                                                              
+-a----         2.52 KB ├── .gitattributes                                                                              
+-a----         6.44 KB ├── .gitignore                                                                                  
+-a----        11.27 KB ├── [33;1mDeploy.ps1[0m                                                                       
+-a----       103.83 KB ├── file_list.txt                                                                               
+-a----       593.74 KB ├── full_tree.txt                                                                               
+-a----       809.00  B ├── [33;1mget.ps1[0m                                                                          
+-a----         2.14 KB ├── Planapp.sln                                                                                 
+-a----         6.84 KB ├── tree_filtered.txt                                                                           
+d-----       840.11 KB ├── [44;1mPlanapp[0m                                                                          
+-a----       603.00  B │   ├── App.xaml                                                                                
+-a----       343.00  B │   ├── App.xaml.cs                                                                             
+-a----       832.29 KB │   ├── file_list.txt                                                                           
+-a----       564.00  B │   ├── MainPage.xaml                                                                           
+-a----       176.00  B │   ├── MainPage.xaml.cs                                                                        
+-a----         1.06 KB │   ├── MauiProgram.cs                                                                          
+-a----         4.04 KB │   ├── Planapp.csproj                                                                          
+-a----         1.07 KB │   ├── Planapp.csproj.user                                                                     
+d-----       594.00  B │   ├── [44;1mComponents[0m                                                                   
+-a----       324.00  B │   │   ├── _Imports.razor                                                                      
+-a----       270.00  B │   │   ├── Routes.razor                                                                        
+d-----         0.00  B │   │   ├── [44;1mLayout[0m                                                                   
+d-----         0.00  B │   │   └── [44;1mPages[0m                                                                    
+d-----         0.00  B │   ├── [44;1mPlatforms[0m                                                                    
+d-----         0.00  B │   │   ├── [44;1mAndroid[0m                                                                  
+d-----         0.00  B │   │   ├── [44;1miOS[0m                                                                      
+d-----         0.00  B │   │   ├── [44;1mMacCatalyst[0m                                                              
+d-----         0.00  B │   │   ├── [44;1mTizen[0m                                                                    
+d-----         0.00  B │   │   └── [44;1mWindows[0m                                                                  
+d-----       124.00  B │   ├── [44;1mProperties[0m                                                                   
+-a----       124.00  B │   │   └── launchSettings.json                                                                 
+d-----         0.00  B │   ├── [44;1mResources[0m                                                                    
+d-----         0.00  B │   │   ├── [44;1mAppIcon[0m                                                                  
+d-----         0.00  B │   │   ├── [44;1mFonts[0m                                                                    
+d-----         0.00  B │   │   ├── [44;1mImages[0m                                                                   
+d-----         0.00  B │   │   ├── [44;1mRaw[0m                                                                      
+d-----         0.00  B │   │   └── [44;1mSplash[0m                                                                   
+d-----         1.10 KB │   ├── [44;1mServices[0m                                                                     
+-a----       548.00  B │   │   ├── DefaultUsageStatsService.cs                                                         
+-a----       577.00  B │   │   └── IUsageStatsService.cs                                                               
+d-----         1.27 KB │   └── [44;1mwwwroot[0m                                                                      
+-a----         1.27 KB │       ├── index.html                                                                          
+d-----         0.00  B │       └── [44;1mcss[0m                                                                      
+d-----         1.81 KB ├── [44;1mPlanapp.SharedUI[0m                                                                 
+-a----        47.00  B │   ├── _Imports.razor                                                                          
+-a----       120.00  B │   ├── Component1.razor                                                                        
+-a----       137.00  B │   ├── Component1.razor.css                                                                    
+-a----         1.10 KB │   ├── ExampleJsInterop.cs                                                                     
+-a----       422.00  B │   ├── Planapp.SharedUI.csproj                                                                 
+d-----       625.00  B │   └── [44;1mwwwroot[0m                                                                      
+-a----       378.00  B │       ├── background.png                                                                      
+-a----       247.00  B │       └── [32;1mexampleJsInterop.js[0m                                                      
+d-----         2.11 KB ├── [44;1mPlanapp.Web[0m                                                                      
+-a----       408.00  B │   ├── _Imports.razor                                                                          
+-a----       477.00  B │   ├── App.razor                                                                               
+-a----       599.00  B │   ├── Planapp.Web.csproj                                                                      
+-a----       238.00  B │   ├── Planapp.Web.csproj.user                                                                 
+-a----       436.00  B │   ├── Program.cs                                                                              
+d-----         5.78 KB │   ├── [44;1mLayout[0m                                                                       
+-a----       372.00  B │   │   ├── MainLayout.razor                                                                    
+-a----         1.44 KB │   │   ├── MainLayout.razor.css                                                                
+-a----         1.35 KB │   │   ├── NavMenu.razor                                                                       
+-a----         2.62 KB │   │   └── NavMenu.razor.css                                                                   
+d-----         1.83 KB │   ├── [44;1mPages[0m                                                                        
+-a----       332.00  B │   │   ├── Counter.razor                                                                       
+-a----        99.00  B │   │   ├── Home.razor                                                                          
+-a----         1.41 KB │   │   └── Weather.razor                                                                       
+d-----       877.00  B │   ├── [44;1mProperties[0m                                                                   
+-a----       877.00  B │   │   └── launchSettings.json                                                                 
+d-----         1.16 MB │   ├── [44;1mpublish[0m                                                                      
+-a----         1.16 MB │   │   ├── Planapp.Web.staticwebassets.endpoints.json                                          
+-a----         1.74 KB │   │   ├── web.config                                                                          
+d-----         0.00  B │   │   └── [44;1mwwwroot[0m                                                                  
+d-----         5.04 KB │   └── [44;1mwwwroot[0m                                                                      
+-a----         1.12 KB │       ├── favicon.png                                                                         
+-a----         2.56 KB │       ├── icon-192.png                                                                        
+-a----         1.36 KB │       ├── index.html                                                                          
+d-----         0.00  B │       ├── [44;1mcss[0m                                                                      
+d-----         0.00  B │       ├── [44;1mlib[0m                                                                      
+d-----         0.00  B │       ├── [44;1mNew folder[0m                                                               
+d-----         0.00  B │       └── [44;1msample-data[0m                                                              
+d-----         1.16 MB └── [44;1mpublish[0m                                                                          
+-a----         1.16 MB     ├── Planapp.Web.staticwebassets.endpoints.json                                              
+-a----         1.74 KB     ├── web.config                                                                              
+d-----         1.16 MB     ├── [44;1mpublish[0m                                                                      
+-a----         1.16 MB     │   ├── Planapp.Web.staticwebassets.endpoints.json                                          
+d-----         0.00  B     │   └── [44;1mwwwroot[0m                                                                  
+d-----        13.28 KB     └── [44;1mwwwroot[0m                                                                      
+-a----         1.12 KB         ├── favicon.png                                                                         
+-a----         2.56 KB         ├── icon-192.png                                                                        
+-a----         1.36 KB         ├── index.html                                                                          
+-a----       427.00  B         ├── index.html.br                                                                       
+-a----       624.00  B         ├── [31;1mindex.html.gz[0m                                                            
+-a----         4.62 KB         ├── Planapp.Web.styles.css                                                              
+-a----         1.18 KB         ├── Planapp.Web.styles.css.br                                                           
+-a----         1.41 KB         ├── [31;1mPlanapp.Web.styles.css.gz[0m                                                
+d-----         0.00  B         ├── [44;1m_content[0m                                                                 
+d-----         0.00  B         ├── [44;1m_framework[0m                                                               
+d-----         0.00  B         ├── [44;1mcss[0m                                                                      
+d-----         0.00  B         ├── [44;1mlib[0m                                                                      
+d-----         0.00  B         └── [44;1msample-data[0m                                                              
+
+
