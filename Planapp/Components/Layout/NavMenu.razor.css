@@ -1,21 +1,31 @@
+/* Performance optimizations */
+.nav-scrollable {
+    contain: layout;
+    transform: translateZ(0); /* Force hardware acceleration */
+}
+
+.navbar-toggler-label {
+    transform: translateZ(0);
+}
+
 /* Hide the checkbox */
 .navbar-toggler {
     display: none;
 }
 
-/* Style the label as a button */
+/* Optimized toggle button */
 .navbar-toggler-label {
     cursor: pointer;
     width: 3.5rem;
     height: 2.5rem;
     position: absolute;
     top: 0.5rem;
-    left: 1rem; /* Moved to left side */
+    left: 1rem;
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 0.375rem;
     background: rgba(255, 255, 255, 0.1);
-    transition: all 0.3s ease;
-    display: none; /* Hidden by default, shown on mobile */
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    display: none;
     align-items: center;
     justify-content: center;
     z-index: 1001;
@@ -23,7 +33,7 @@
 
     .navbar-toggler-label:hover {
         background-color: rgba(255, 255, 255, 0.2);
-        transform: scale(1.05);
+        transform: scale(1.02);
     }
 
 .navbar-toggler:checked + .navbar-toggler-label {
@@ -38,13 +48,14 @@
     background-repeat: no-repeat;
     background-position: center;
     background-size: 100%;
-    transition: transform 0.3s ease;
+    transition: transform 0.2s ease;
 }
 
 .navbar-toggler:checked + .navbar-toggler-label .navbar-toggler-icon {
     transform: rotate(90deg);
 }
 
+/* Header styling */
 .top-row {
     height: 3.5rem;
     background-color: rgba(0,0,0,0.4);
@@ -57,7 +68,7 @@
 .container-fluid {
     display: flex;
     align-items: center;
-    justify-content: center; /* Center the brand */
+    justify-content: center;
     width: 100%;
 }
 
@@ -67,14 +78,15 @@
     text-decoration: none;
     font-weight: 700;
     letter-spacing: 0.5px;
-    transition: all 0.3s ease;
+    transition: color 0.2s ease, transform 0.1s ease;
 }
 
     .navbar-brand:hover {
         color: rgba(255, 255, 255, 0.8) !important;
-        transform: scale(1.05);
+        transform: scale(1.02);
     }
 
+/* Optimized icons */
 .bi {
     display: inline-block;
     position: relative;
@@ -101,6 +113,7 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-phone' viewBox='0 0 16 16'%3E%3Cpath d='M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z'/%3E%3Cpath d='M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z'/%3E%3C/svg%3E");
 }
 
+/* Navigation items */
 .nav-item {
     font-size: 0.9rem;
     padding-bottom: 0.5rem;
@@ -123,7 +136,7 @@
         line-height: 3rem;
         text-decoration: none;
         padding: 0 1rem;
-        transition: all 0.3s ease;
+        transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
         margin: 0.25rem 0;
     }
 
@@ -140,13 +153,15 @@
             transform: translateX(2px);
         }
 
+/* Main navigation container */
 .nav-scrollable {
     display: block;
     background: inherit;
-    transition: all 0.3s ease;
+    transition: transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transform: translateZ(0);
 }
 
-/* Mobile styles */
+/* Mobile styles - Optimized */
 @media (max-width: 640.98px) {
     .navbar-toggler-label {
         display: flex;
@@ -155,37 +170,34 @@
     .nav-scrollable {
         position: fixed;
         top: 3.5rem;
-        left: -100%;
+        left: 0;
         width: 280px;
         height: calc(100vh - 3.5rem);
         background: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
         z-index: 1000;
         box-shadow: 2px 0 20px rgba(0,0,0,0.3);
         overflow-y: auto;
-        transition: left 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        overflow-x: hidden;
         backdrop-filter: blur(10px);
+        transform: translateX(-100%);
     }
 
     .navbar-toggler:checked ~ .nav-scrollable {
-        left: 0;
+        transform: translateX(0);
     }
 
-        /* Backdrop overlay */
-        .navbar-toggler:checked ~ .nav-scrollable::before {
+        /* Backdrop overlay - More performant */
+        .navbar-toggler:checked ~ .nav-scrollable::after {
             content: '';
             position: fixed;
-            top: 0;
+            top: -3.5rem;
             left: 280px;
             width: calc(100vw - 280px);
             height: 100vh;
             background: rgba(0, 0, 0, 0.5);
             z-index: -1;
+            backdrop-filter: blur(2px);
         }
-
-    /* Close menu when clicking nav links on mobile */
-    .nav-item ::deep a {
-        position: relative;
-    }
 }
 
 /* Desktop styles */
@@ -200,7 +212,8 @@
         width: auto !important;
         height: calc(100vh - 3.5rem) !important;
         overflow-y: auto;
-        left: auto !important;
+        overflow-x: hidden;
+        transform: none !important;
         box-shadow: none !important;
     }
 
@@ -221,4 +234,25 @@
             .nav-scrollable::-webkit-scrollbar-thumb:hover {
                 background: rgba(255,255,255,0.5);
             }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .nav-scrollable {
+        transition: none !important;
+    }
+
+    .navbar-toggler-icon {
+        transition: none !important;
+    }
+
+    .nav-item ::deep a {
+        transition: none !important;
+    }
 }

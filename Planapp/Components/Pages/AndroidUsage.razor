@@ -1,6 +1,8 @@
 ﻿@page "/android-usage"
 @inject Planapp.Services.IUsageStatsService UsageStatsService
 @inject IJSRuntime JSRuntime
+@using Microsoft.AspNetCore.Components.Rendering
+@using System.Collections.Concurrent
 
 <div class="page-header">
     <h1>📱 App Usage Statistics</h1>
@@ -51,70 +53,94 @@ else
     <div class="stats-overview">
         <div class="stat-card">
             <div class="stat-number">@AppUsages.Count</div>
-            <div class="stat-label">Apps Used Today</div>
+            <div class="stat-label">Apps Tracked</div>
         </div>
         <div class="stat-card">
             <div class="stat-number">@FormatTimeShort(AppUsages.Sum(a => a.TotalTimeInForeground))</div>
             <div class="stat-label">Total Screen Time</div>
         </div>
         <div class="stat-card">
-            <div class="stat-number">@FormatTimeShort(AppUsages.FirstOrDefault()?.TotalTimeInForeground ?? 0)</div>
-            <div class="stat-label">Most Used App</div>
+            <div class="stat-number">@AppUsages.Count(a => a.TotalTimeInForeground > 0)</div>
+            <div class="stat-label">Apps Used Today</div>
         </div>
     </div>
 
+    @* Debug info - remove in production *@
+    @if (AppUsages != null && AppUsages.Count > 0)
+    {
+        <div style="background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; font-size: 0.8rem; color: #666;">
+            <strong>Debug Info:</strong> Found @AppUsages.Count apps, 
+            @AppUsages.Count(a => a.TotalTimeInForeground > 0) with usage > 0ms.
+            Top 3: @string.Join(", ", AppUsages.Take(3).Select(a => $"{a.AppName} ({FormatTime(a.TotalTimeInForeground)})"))
+        </div>
+    }
+
     <div class="section-header">
         <h2>📈 App Usage Breakdown</h2>
-        <button class="btn-refresh" @onclick="RefreshData" disabled="@IsRefreshing">
-            <span class="refresh-icon @(IsRefreshing ? "spinning" : "")">🔄</span>
-            @(IsRefreshing ? "Refreshing..." : "Refresh")
-        </button>
+        <div class="controls">
+            <label class="filter-toggle">
+                <input type="checkbox" @onchange="OnFilterChanged" checked="@ShowOnlyUsedApps" />
+                Show only used apps
+            </label>
+            <button class="btn-refresh" @onclick="RefreshData" disabled="@IsRefreshing">
+                <span class="refresh-icon @(IsRefreshing ? "spinning" : "")">🔄</span>
+                @(IsRefreshing ? "Refreshing..." : "Refresh")
+            </button>
+        </div>
     </div>
 
     <div class="usage-grid">
         @{
-            var totalTime = AppUsages.Sum(a => a.TotalTimeInForeground);
+            var totalTime = FilteredApps.Sum(a => a.TotalTimeInForeground);
+            var maxToShow = 100;
         }
-        @foreach (var app in AppUsages.Take(50))
+        @foreach (var app in FilteredApps.Take(maxToShow))
         {
             var percentage = totalTime > 0 ? (double)app.TotalTimeInForeground / totalTime * 100 : 0;
-            var isTopApp = AppUsages.IndexOf(app) < 3;
+            var isTopApp = FilteredApps.IndexOf(app) < 3 && app.TotalTimeInForeground > 0;
             
-            <div class="usage-card @(isTopApp ? "top-app" : "")">
+            <div class="usage-card @(isTopApp ? "top-app" : "")" @key="app.PackageName">
                 <div class="app-header">
                     <div class="app-icon-container">
-                        <LazyAppIcon PackageName="@app.PackageName" AppName="@app.AppName" />
+                        @RenderAppIcon(app.PackageName, app.AppName)
                         @if (isTopApp)
                         {
-                            <div class="top-badge">@(AppUsages.IndexOf(app) + 1)</div>
+                            <div class="top-badge">@(FilteredApps.Where(a => a.TotalTimeInForeground > 0).ToList().IndexOf(app) + 1)</div>
                         }
                     </div>
                     <div class="app-info">
-                        <h3 class="app-name">@app.AppName</h3>
-                        <p class="package-name">@app.PackageName</p>
+                        <h3 class="app-name" title="@app.AppName">@app.AppName</h3>
+                        <p class="package-name" title="@app.PackageName">@app.PackageName</p>
                     </div>
                 </div>
                 
                 <div class="usage-stats">
                     <div class="primary-stat">@FormatTime(app.TotalTimeInForeground)</div>
-                    <div class="percentage-stat">@percentage.ToString("F1")% of total time</div>
-                    
-                    <div class="progress-container">
-                        <div class="progress-bar">
-                            <div class="progress-fill @GetProgressColorClass(percentage)" 
-                                 style="width: @Math.Max(percentage, 2)%"></div>
+                    @if (app.TotalTimeInForeground > 0)
+                    {
+                        <div class="percentage-stat">@percentage.ToString("F1")% of total time</div>
+                        
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div class="progress-fill @GetProgressColorClass(percentage)" 
+                                     style="width: @Math.Max(percentage, 2)%"></div>
+                            </div>
                         </div>
-                    </div>
+                    }
+                    else
+                    {
+                        <div class="percentage-stat">Not used today</div>
+                    }
                 </div>
             </div>
         }
         
-        @if (AppUsages.Count > 50)
+        @if (FilteredApps.Count > maxToShow)
         {
             <div class="show-more-card">
                 <div class="show-more-content">
-                    <h3>@(AppUsages.Count - 50) more apps</h3>
-                    <p>Showing top 50 most used apps</p>
+                    <h3>@(FilteredApps.Count - maxToShow) more apps</h3>
+                    <p>Showing top @maxToShow apps</p>
                 </div>
             </div>
         }
@@ -123,8 +149,11 @@ else
 
 @code {
     private List<Planapp.Services.AppUsageInfo>? AppUsages;
+    private List<Planapp.Services.AppUsageInfo> FilteredApps = new();
     private bool HasPermission = false;
     private bool IsRefreshing = false;
+    private bool ShowOnlyUsedApps = true;
+    private readonly ConcurrentDictionary<string, string> IconDataUrls = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -137,15 +166,41 @@ else
         if (HasPermission)
         {
             AppUsages = await UsageStatsService.GetAppUsageAsync();
+            System.Diagnostics.Debug.WriteLine($"Loaded {AppUsages?.Count ?? 0} apps from service");
+            FilterApps();
         }
+        else
+        {
+            System.Diagnostics.Debug.WriteLine("No usage permission granted");
+        }
+    }
+
+    private void OnFilterChanged(ChangeEventArgs e)
+    {
+        ShowOnlyUsedApps = (bool)(e.Value ?? false);
+        FilterApps();
+    }
+
+    private void FilterApps()
+    {
+        if (AppUsages == null) return;
+
+        FilteredApps = ShowOnlyUsedApps 
+            ? AppUsages.Where(a => a.TotalTimeInForeground > 0).ToList()
+            : AppUsages;
+        
+        StateHasChanged();
     }
 
     private async Task RefreshData()
     {
         IsRefreshing = true;
         AppUsages = null;
+        FilteredApps.Clear();
+        IconDataUrls.Clear();
         StateHasChanged();
-        await Task.Delay(800); // Show loading state
+        
+        await Task.Delay(500);
         await LoadData();
         IsRefreshing = false;
         StateHasChanged();
@@ -169,6 +224,8 @@ else
 
     string FormatTime(long milliseconds)
     {
+        if (milliseconds <= 0) return "0s";
+        
         var time = TimeSpan.FromMilliseconds(milliseconds);
         var parts = new List<string>();
         
@@ -188,92 +245,84 @@ else
 
     string FormatTimeShort(long milliseconds)
     {
+        if (milliseconds <= 0) return "0s";
+        
         var time = TimeSpan.FromMilliseconds(milliseconds);
         
         if (time.TotalHours >= 1)
-        {
             return $"{time.TotalHours:F1}h";
-        }
         else if (time.TotalMinutes >= 1)
-        {
             return $"{(int)time.TotalMinutes}m";
-        }
         else
-        {
             return $"{(int)time.TotalSeconds}s";
-        }
     }
-}
 
-@* Lazy Loading App Icon Component *@
-@code {
-    public class LazyAppIcon : ComponentBase
+    private RenderFragment RenderAppIcon(string packageName, string appName) => builder =>
     {
-        [Parameter] public string PackageName { get; set; } = "";
-        [Parameter] public string AppName { get; set; } = "";
+        var iconDataUrl = GetIconDataUrl(packageName);
         
-        private string? IconDataUrl;
-        private bool IsLoading = true;
-        
-        protected override async Task OnInitializedAsync()
+        if (string.IsNullOrEmpty(iconDataUrl))
         {
-            await LoadIcon();
-        }
-        
-        private async Task LoadIcon()
-        {
-            await Task.Run(() =>
-            {
-                try
-                {
-                    var iconBytes = Planapp.Platforms.Android.UsageStatsHelper.GetAppIcon(PackageName);
-                    if (iconBytes != null)
-                    {
-                        IconDataUrl = $"data:image/png;base64,{Convert.ToBase64String(iconBytes)}";
-                    }
-                }
-                catch
-                {
-                    // Icon loading failed
-                }
-                finally
-                {
-                    IsLoading = false;
-                    InvokeAsync(StateHasChanged);
-                }
-            });
-        }
-        
-        protected override void BuildRenderTree(RenderTreeBuilder builder)
-        {
-            if (IsLoading)
+            if (IsIconLoading(packageName))
             {
                 builder.OpenElement(0, "div");
                 builder.AddAttribute(1, "class", "app-icon-loading");
                 builder.AddContent(2, "⏳");
                 builder.CloseElement();
             }
-            else if (!string.IsNullOrEmpty(IconDataUrl))
-            {
-                builder.OpenElement(0, "img");
-                builder.AddAttribute(1, "src", IconDataUrl);
-                builder.AddAttribute(2, "class", "app-icon");
-                builder.AddAttribute(3, "alt", $"{AppName} icon");
-                builder.CloseElement();
-            }
             else
             {
                 builder.OpenElement(0, "div");
                 builder.AddAttribute(1, "class", "app-icon-fallback");
-                builder.AddContent(2, GetAppInitial(AppName));
+                builder.AddContent(2, GetAppInitial(appName));
                 builder.CloseElement();
             }
         }
-        
-        private string GetAppInitial(string appName)
+        else
         {
-            if (string.IsNullOrEmpty(appName)) return "?";
-            return appName[0].ToString().ToUpper();
+            builder.OpenElement(0, "img");
+builder.AddAttribute(1, "src", iconDataUrl);
+builder.AddAttribute(2, "class", "app-icon");
+builder.AddAttribute(3, "width", 48);
+builder.AddAttribute(4, "height", 48);
+builder.AddAttribute(5, "alt", $"{appName} icon");
+builder.AddAttribute(6, "loading", "lazy");
+builder.CloseElement();
         }
+        
+    };
+private string? GetIconDataUrl(string packageName)
+{
+    if (IconDataUrls.TryGetValue(packageName, out var cachedUrl))
+        return string.IsNullOrEmpty(cachedUrl) ? null : cachedUrl;
+
+#if ANDROID
+    var base64Icon = Planapp.Platforms.Android.UsageStatsHelper.GetAppIcon(packageName);
+    if (!string.IsNullOrEmpty(base64Icon))
+    {
+        var dataUrl = $"data:image/png;base64,{base64Icon}";
+        IconDataUrls.TryAdd(packageName, dataUrl);
+        return dataUrl;
+    }
+    else
+    {
+        IconDataUrls.TryAdd(packageName, "");
+        return null;
+    }
+#else
+    IconDataUrls.TryAdd(packageName, "");
+    return null;
+#endif
+}
+
+    private bool IsIconLoading(string packageName)
+    {
+        return !IconDataUrls.ContainsKey(packageName);
+    }
+
+    private string GetAppInitial(string appName)
+    {
+        if (string.IsNullOrEmpty(appName)) return "?";
+        return appName[0].ToString().ToUpper();
     }
 }

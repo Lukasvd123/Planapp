@@ -7,20 +7,35 @@ using Android.Content;
 using Android.App;
 using Android.OS;
 
-[assembly: Microsoft.Maui.Controls.Dependency(typeof(Planapp.Platforms.Android.UsageStatsServiceImpl))]
 namespace Planapp.Platforms.Android
 {
     public class UsageStatsServiceImpl : IUsageStatsService
     {
-        public Task<List<AppUsageInfo>> GetAppUsageAsync()
+        public async Task<List<AppUsageInfo>> GetAppUsageAsync()
         {
-            var androidList = UsageStatsHelper.GetDetailedAppUsage(TimeSpan.FromDays(1));
-            return Task.FromResult(androidList);
+            return await Task.Run(() =>
+            {
+                var detailedUsage = UsageStatsHelper.GetDetailedAppUsage(TimeSpan.FromDays(1));
+
+                return detailedUsage.Select(detailed => new AppUsageInfo
+                {
+                    PackageName = detailed.PackageName,
+                    TotalTimeInForeground = detailed.TotalTimeInForeground,
+                    AppName = detailed.AppName
+                }).ToList();
+            });
         }
 
         public void RequestUsageAccess()
         {
-            UsageStatsHelper.OpenUsageAccessSettings();
+            try
+            {
+                UsageStatsHelper.OpenUsageAccessSettings();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error opening usage settings: {ex.Message}");
+            }
         }
 
         public bool HasUsagePermission()
@@ -28,11 +43,19 @@ namespace Planapp.Platforms.Android
             try
             {
                 var context = global::Android.App.Application.Context;
-                if (context == null) return false;
+                if (context == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("Context is null");
+                    return false;
+                }
 
-                // Check if we have usage stats permission
+                // Check AppOpsManager permission
                 var appOps = (AppOpsManager?)context.GetSystemService(Context.AppOpsService);
-                if (appOps == null) return false;
+                if (appOps == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("AppOpsManager is null");
+                    return false;
+                }
 
                 var mode = appOps.CheckOpNoThrow(
                     AppOpsManager.OpstrGetUsageStats!,
@@ -40,22 +63,32 @@ namespace Planapp.Platforms.Android
                     context.PackageName!);
 
                 if (mode != AppOpsManagerMode.Allowed)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Usage stats permission not allowed: {mode}");
                     return false;
+                }
 
-                // Double check by trying to actually get usage stats
+                // Verify we can actually get usage stats
                 var usageStatsManager = (UsageStatsManager?)context.GetSystemService(Context.UsageStatsService);
-                if (usageStatsManager == null) return false;
+                if (usageStatsManager == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("UsageStatsManager is null");
+                    return false;
+                }
 
                 var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
-                var startTime = endTime - (1000L * 60 * 60 * 24); // 24 hours ago
+                var startTime = endTime - (1000L * 60 * 60 * 24); // 24 hours
 
                 var stats = usageStatsManager.QueryUsageStats(UsageStatsInterval.Daily, startTime, endTime);
 
-                // If we get stats back and it's not empty, we have permission
-                return stats != null && stats.Count > 0;
+                var hasPermission = stats != null && stats.Count > 0;
+                System.Diagnostics.Debug.WriteLine($"Usage permission check result: {hasPermission}");
+
+                return hasPermission;
             }
-            catch
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"Error checking usage permission: {ex.Message}");
                 return false;
             }
         }
