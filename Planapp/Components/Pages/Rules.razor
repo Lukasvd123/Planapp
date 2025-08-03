@@ -1,0 +1,220 @@
+﻿@page "/rules"
+@inject Planapp.Services.IRuleService RuleService
+@inject NavigationManager Navigation
+@using Planapp.Models
+
+<div class="page-header">
+    <h1>📋 App Usage Rules</h1>
+    <p class="page-subtitle">Manage your app time limits and actions</p>
+</div>
+
+<div class="rules-controls">
+    <button class="btn btn-primary" @onclick="CreateNewRule">
+        <span class="btn-icon">➕</span>
+        Create New Rule
+    </button>
+    <button class="btn-refresh" @onclick="RefreshRules" disabled="@IsRefreshing">
+        <span class="refresh-icon @(IsRefreshing ? "spinning" : "")">🔄</span>
+        @(IsRefreshing ? "Refreshing..." : "Refresh")
+    </button>
+</div>
+
+@if (RulesList == null)
+{
+        <div class="loading-card">
+            <div class="loading-spinner"></div>
+            <h3>Loading rules...</h3>
+        </div>
+}
+else if (RulesList.Count == 0)
+{
+        <div class="no-data-card">
+            <div class="no-data-icon">📜</div>
+            <h3>No Rules Created</h3>
+            <p>Create your first app usage rule to get started with time management!</p>
+            <button class="btn btn-primary" @onclick="CreateNewRule">
+                <span class="btn-icon">➕</span>
+                Create First Rule
+            </button>
+        </div>
+}
+else
+{
+        <div class="rules-grid">
+        @foreach (var rule in RulesList)
+        {
+                    <div class="rule-card @(rule.IsEnabled ? "enabled" : "disabled")">
+                        <div class="rule-header">
+                            <div class="rule-info">
+                                <h3 class="rule-name">@rule.Name</h3>
+                                <div class="rule-status">
+                            @if (rule.IsEnabled)
+                            {
+                                            <span class="status-badge active">✅ Active</span>
+                            }
+                            else
+                            {
+                                            <span class="status-badge inactive">⏸️ Paused</span>
+                            }
+                                </div>
+                            </div>
+                            <div class="rule-actions">
+                                <button class="btn-icon-small" @onclick="() => EditRule(rule.Id)" title="Edit">
+                                    ✏️
+                                </button>
+                                <button class="btn-icon-small" @onclick="() => ToggleRule(rule)" title="@(rule.IsEnabled ? "Disable" : "Enable")">
+                            @(rule.IsEnabled ? "⏸️" : "▶️")
+                                </button>
+                                <button class="btn-icon-small delete" @onclick="() => DeleteRule(rule.Id)" title="Delete">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="rule-details">
+                            <div class="rule-apps">
+                                <strong>Apps:</strong> 
+                        @if (rule.SelectedAppNames.Count > 0)
+                        {
+                                        <span>@string.Join(", ", rule.SelectedAppNames.Take(3))@(rule.SelectedAppNames.Count > 3 ? $" and {rule.SelectedAppNames.Count - 3} more" : "")</span>
+                        }
+                        else
+                        {
+                                        <span class="no-apps">No apps selected</span>
+                        }
+                            </div>
+
+                            <div class="rule-threshold">
+                                <strong>Time Limit:</strong> 
+                        @if (rule.ThresholdHours > 0)
+                        {
+                                        <span>@rule.ThresholdHours h @rule.ThresholdMinutes m</span>
+                        }
+                        else
+                        {
+                                        <span>@rule.ThresholdMinutes minutes</span>
+                        }
+                            </div>
+
+                            <div class="rule-action">
+                                <strong>Action:</strong> 
+                        @if (rule.ActionType == "OpenApp")
+                        {
+                                        <span>Open @rule.TargetAppName</span>
+                        }
+                        else
+                        {
+                                        <span>Lock in current app</span>
+                        }
+                            </div>
+
+                    @if (rule.SelectedPackages.Count > 0)
+                    {
+                                    <div class="current-usage">
+                                        <strong>Today's Usage:</strong> 
+                            @if (UsageData.TryGetValue(rule.Id, out var usage))
+                            {
+                                                <span class="usage-time @(usage >= rule.ThresholdInMilliseconds ? "over-limit" : "under-limit")">
+                                    @FormatTime(usage)
+                                    @if (usage >= rule.ThresholdInMilliseconds)
+                                    {
+                                                            <span class="limit-exceeded">⚠️ Limit Exceeded</span>
+                                    }
+                                                </span>
+                            }
+                            else
+                            {
+                                                <span class="usage-loading">Loading...</span>
+                            }
+                                    </div>
+                    }
+                        </div>
+                    </div>
+        }
+        </div>
+}
+
+@code {
+    private List<AppRule>? RulesList;
+    private bool IsRefreshing = false;
+    private Dictionary<string, long> UsageData = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRules();
+        await LoadUsageData();
+    }
+
+    private async Task LoadRules()
+    {
+        RulesList = await RuleService.GetRulesAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadUsageData()
+    {
+        if (RulesList == null) return;
+
+        foreach (var rule in RulesList)
+        {
+            if (rule.SelectedPackages.Count > 0)
+            {
+                var usage = await RuleService.GetCombinedUsageForAppsAsync(rule.SelectedPackages);
+                UsageData[rule.Id] = usage;
+            }
+        }
+        StateHasChanged();
+    }
+
+    private async Task RefreshRules()
+    {
+        IsRefreshing = true;
+        await LoadRules();
+        await LoadUsageData();
+        IsRefreshing = false;
+    }
+
+    private void CreateNewRule()
+    {
+        Navigation.NavigateTo("/rules/edit/new");
+    }
+
+    private void EditRule(string ruleId)
+    {
+        Navigation.NavigateTo($"/rules/edit/{ruleId}");
+    }
+
+    private async Task ToggleRule(AppRule rule)
+    {
+        rule.IsEnabled = !rule.IsEnabled;
+        await RuleService.SaveRuleAsync(rule);
+        StateHasChanged();
+    }
+
+    private async Task DeleteRule(string ruleId)
+    {
+        await RuleService.DeleteRuleAsync(ruleId);
+        await LoadRules();
+    }
+
+    private string FormatTime(long milliseconds)
+    {
+        if (milliseconds <= 0) return "0m";
+
+        var time = TimeSpan.FromMilliseconds(milliseconds);
+        var parts = new List<string>();
+
+        if (time.TotalDays >= 1)
+        {
+            var days = (int)time.TotalDays;
+            parts.Add($"{days}d");
+            time = time.Subtract(TimeSpan.FromDays(days));
+        }
+
+        if (time.Hours > 0) parts.Add($"{time.Hours}h");
+        if (time.Minutes > 0) parts.Add($"{time.Minutes}m");
+        if (parts.Count == 0 && time.Seconds > 0) parts.Add($"{time.Seconds}s");
+
+        return parts.Count > 0 ? string.Join(" ", parts) : "0m";
+    }
+}

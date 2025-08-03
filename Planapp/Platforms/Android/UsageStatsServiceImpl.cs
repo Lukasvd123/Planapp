@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Planapp.Services;
 using Android.App.Usage;
@@ -15,14 +16,41 @@ namespace Planapp.Platforms.Android
         {
             return await Task.Run(() =>
             {
-                var detailedUsage = UsageStatsHelper.GetDetailedAppUsage(TimeSpan.FromDays(1));
-
-                return detailedUsage.Select(detailed => new AppUsageInfo
+                try
                 {
-                    PackageName = detailed.PackageName,
-                    TotalTimeInForeground = detailed.TotalTimeInForeground,
-                    AppName = detailed.AppName
-                }).ToList();
+                    // Get usage since start of today instead of rolling 24h
+                    var today = DateTime.Today;
+                    var timeSpan = DateTime.Now - today;
+
+                    var context = Platform.CurrentActivity?.ApplicationContext ?? global::Android.App.Application.Context;
+                    if (context == null) return new List<AppUsageInfo>();
+
+                    var usageStatsManager = context.GetSystemService(Context.UsageStatsService) as UsageStatsManager;
+                    if (usageStatsManager == null) return new List<AppUsageInfo>();
+
+                    var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
+                    var startTime = endTime - (long)timeSpan.TotalMilliseconds;
+
+                    var stats = usageStatsManager.QueryUsageStats(UsageStatsInterval.Daily, startTime, endTime);
+
+                    if (stats == null || stats.Count == 0)
+                        return new List<AppUsageInfo>();
+
+                    return stats
+                        .Where(s => s != null && s.TotalTimeInForeground > 0 && !string.IsNullOrEmpty(s.PackageName))
+                        .Select(s => new AppUsageInfo
+                        {
+                            PackageName = s.PackageName ?? "Unknown",
+                            TotalTimeInForeground = s.TotalTimeInForeground,
+                            AppName = UsageStatsHelper.GetAppName(s.PackageName ?? "")
+                        })
+                        .OrderByDescending(s => s.TotalTimeInForeground)
+                        .ToList();
+                }
+                catch (Exception)
+                {
+                    return new List<AppUsageInfo>();
+                }
             });
         }
 

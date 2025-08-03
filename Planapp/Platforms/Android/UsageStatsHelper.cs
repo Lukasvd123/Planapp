@@ -32,7 +32,82 @@ namespace Planapp.Platforms.Android
         private const int ICON_SIZE = 48;
         private static readonly ConcurrentDictionary<string, string> IconCache = new();
         private static readonly ConcurrentDictionary<string, string> NameCache = new();
+        // Add this method to the existing UsageStatsHelper class
 
+        // Add this method to your existing UsageStatsHelper class
+
+        public static List<DetailedAppUsageInfo> GetDetailedAppUsage(TimeSpan timeSpan)
+        {
+            try
+            {
+                var context = Platform.CurrentActivity?.ApplicationContext ?? global::Android.App.Application.Context;
+                if (context == null) return new List<DetailedAppUsageInfo>();
+
+                var usageStatsManager = context.GetSystemService(Context.UsageStatsService) as UsageStatsManager;
+                if (usageStatsManager == null) return new List<DetailedAppUsageInfo>();
+
+                var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
+                var startTime = endTime - (long)timeSpan.TotalMilliseconds;
+
+                var rawStats = usageStatsManager.QueryUsageStats(
+                                   UsageStatsInterval.Daily,
+                                   startTime,
+                                   endTime);
+
+                if (rawStats is null || rawStats.Count == 0)
+                    return new List<DetailedAppUsageInfo>();
+
+                // Filter → GroupBy → pick the entry with the max usage
+                var result = rawStats
+                    .Where(s => s != null
+                                && !string.IsNullOrEmpty(s.PackageName)
+                                && s.TotalTimeInForeground > 0)
+                    .GroupBy(s => s.PackageName!)                  // group per package
+                    .Select(g =>
+                    {
+                        // pick the one with the largest foreground-time
+                        var best = g.OrderByDescending(x => x.TotalTimeInForeground)
+                                     .First();
+
+                        return new DetailedAppUsageInfo
+                        {
+                            PackageName = best.PackageName!,
+                            TotalTimeInForeground = best.TotalTimeInForeground,
+                            FirstTimeStamp = DateTimeOffset
+                                                     .FromUnixTimeMilliseconds(best.FirstTimeStamp)
+                                                     .DateTime,
+                            LastTimeStamp = DateTimeOffset
+                                                     .FromUnixTimeMilliseconds(best.LastTimeStamp)
+                                                     .DateTime,
+                            AppName = GetAppName(best.PackageName!)
+                        };
+                    })
+                    .OrderByDescending(info => info.TotalTimeInForeground)
+                    .ToList();
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[GetDetailedAppUsage] {ex}");
+                return new List<DetailedAppUsageInfo>();
+            }
+        }
+        public static List<DetailedAppUsageInfo> GetTodayAppUsage()
+        {
+            try
+            {
+                var today = DateTime.Today;
+                var timeSpan = DateTime.Now - today;
+
+                return GetDetailedAppUsage(timeSpan);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[GetTodayAppUsage] {ex}");
+                return new List<DetailedAppUsageInfo>();
+            }
+        }
         public static List<AndroidAppUsageInfo> GetAppUsage(TimeSpan timeSpan)
         {
             try
@@ -68,73 +143,7 @@ namespace Planapp.Platforms.Android
             }
         }
 
-        public static List<DetailedAppUsageInfo> GetDetailedAppUsage(TimeSpan timeSpan)
-        {
-            try
-            {
-                // -------------------------------------------------------------
-                // 1. Get the context / manager exactly the same as before
-                // -------------------------------------------------------------
-                var context = Platform.CurrentActivity?.ApplicationContext
-                              ?? global::Android.App.Application.Context;
-
-                if (context == null)
-                    return new List<DetailedAppUsageInfo>();
-
-                if (context.GetSystemService(Context.UsageStatsService) is not UsageStatsManager usageStatsManager)
-                    return new List<DetailedAppUsageInfo>();
-
-                var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
-                var startTime = endTime - (long)timeSpan.TotalMilliseconds;
-
-                var rawStats = usageStatsManager.QueryUsageStats(
-                                   UsageStatsInterval.Daily,
-                                   startTime,
-                                   endTime);
-
-                if (rawStats is null || rawStats.Count == 0)
-                    return new List<DetailedAppUsageInfo>();
-
-                // -------------------------------------------------------------
-                // 2.  Filter   → GroupBy   → pick the entry with the max usage
-                // -------------------------------------------------------------
-                var result = rawStats
-                    .Where(s => s != null
-                                && !string.IsNullOrEmpty(s.PackageName)
-                                && s.TotalTimeInForeground > 0)
-                    .GroupBy(s => s.PackageName!)                  // group per package
-                    .Select(g =>
-                    {
-                        // pick the one with the largest foreground-time
-                        var best = g.OrderByDescending(x => x.TotalTimeInForeground)
-                                     .First();
-
-                        return new DetailedAppUsageInfo
-                        {
-                            PackageName = best.PackageName!,
-                            TotalTimeInForeground = best.TotalTimeInForeground,
-                            FirstTimeStamp = DateTimeOffset
-                                                     .FromUnixTimeMilliseconds(best.FirstTimeStamp)
-                                                     .DateTime,
-                            LastTimeStamp = DateTimeOffset
-                                                     .FromUnixTimeMilliseconds(best.LastTimeStamp)
-                                                     .DateTime,
-                            AppName = GetAppName(best.PackageName!)
-                            // LaunchCount could be aggregated here if you later
-                            // retrieve it from UsageEvents or a secondary source.
-                        };
-                    })
-                    .OrderByDescending(info => info.TotalTimeInForeground)
-                    .ToList();
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[GetDetailedAppUsage] {ex}");
-                return new List<DetailedAppUsageInfo>();
-            }
-        }
+     
         public static string GetAppIcon(string packageName)
         {
             if (string.IsNullOrWhiteSpace(packageName))

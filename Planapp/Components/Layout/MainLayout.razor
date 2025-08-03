@@ -1,4 +1,11 @@
 ﻿@inherits LayoutComponentBase
+@using Planapp.Components.Layout
+@using Planapp.Components.Shared
+@using Planapp.Services
+@using Planapp.Models
+@inject IRuleBlockService RuleBlockService
+@inject RuleMonitorService RuleMonitorService
+@implements IDisposable
 
 <div class="page">
     <div class="sidebar">
@@ -15,3 +22,74 @@
         </article>
     </main>
 </div>
+
+<RuleBlockModal 
+    IsVisible="@IsRuleBlocked"
+    BlockedRule="@BlockedRule"
+    CountdownSeconds="@CountdownSeconds"
+    OnAcknowledge="@OnAcknowledgeRule"
+    OnOpenApp="@OnOpenTargetApp" />
+
+@code {
+    private bool IsRuleBlocked = false;
+    private AppRule? BlockedRule = null;
+    private int CountdownSeconds = 30;
+    private Timer? CountdownTimer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        RuleBlockService.RuleTriggered += OnRuleTriggered;
+        RuleBlockService.RuleAcknowledged += OnRuleAcknowledged;
+
+        // Start the rule monitoring service
+        await RuleMonitorService.StartAsync();
+    }
+
+    private void OnRuleTriggered(object? sender, RuleBlockEventArgs e)
+    {
+        InvokeAsync(() =>
+        {
+            BlockedRule = e.Rule;
+            IsRuleBlocked = true;
+
+            // Set countdown based on action type
+            CountdownSeconds = e.Rule.ActionType == "LockInApp" ? 30 : 10;
+
+            StateHasChanged();
+        });
+    }
+
+    private void OnRuleAcknowledged(object? sender, EventArgs e)
+    {
+        InvokeAsync(() =>
+        {
+            IsRuleBlocked = false;
+            BlockedRule = null;
+            CountdownSeconds = 30;
+            CountdownTimer?.Dispose();
+            CountdownTimer = null;
+
+            StateHasChanged();
+        });
+    }
+
+    private async Task OnAcknowledgeRule()
+    {
+        await RuleBlockService.AcknowledgeBlock();
+    }
+
+    private async Task OnOpenTargetApp(string packageName)
+    {
+        await RuleBlockService.OpenTargetApp(packageName);
+    }
+
+    public void Dispose()
+    {
+        RuleBlockService.RuleTriggered -= OnRuleTriggered;
+        RuleBlockService.RuleAcknowledged -= OnRuleAcknowledged;
+        CountdownTimer?.Dispose();
+
+        // Stop the rule monitoring service
+        _ = Task.Run(async () => await RuleMonitorService.StopAsync());
+    }
+}

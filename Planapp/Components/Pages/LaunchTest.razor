@@ -1,0 +1,189 @@
+﻿@page "/launch-test"
+@inject Planapp.Services.IAppLaunchMonitor AppLaunchMonitor
+@inject Planapp.Services.IRuleService RuleService
+@using Planapp.Models
+@using Planapp.Services
+
+<div class="page-header">
+    <h1>🚀 App Launch Testing</h1>
+    <p class="page-subtitle">Manually trigger app launch events to test rule triggers</p>
+</div>
+
+<div class="test-status">
+    <div class="status-card">
+        <h3>Monitor Status</h3>
+        <div class="status-indicator @(AppLaunchMonitor.IsMonitoring ? "active" : "inactive")">
+            @if (AppLaunchMonitor.IsMonitoring)
+            {
+                <span class="status-icon">✅</span>
+                <span>Monitoring Active</span>
+            }
+            else
+            {
+                <span class="status-icon">❌</span>
+                <span>Monitoring Inactive</span>
+            }
+        </div>
+
+        @if (LastLaunchEvent != null)
+        {
+            <div class="last-event">
+                <strong>Last Event:</strong> @LastLaunchEvent.AppName at @LastLaunchEvent.LaunchedAt.ToString("HH:mm:ss")
+            </div>
+        }
+    </div>
+</div>
+
+@if (Rules == null)
+{
+    <div class="loading-card">
+        <div class="loading-spinner"></div>
+        <h3>Loading rules...</h3>
+    </div>
+}
+else if (Rules.Count == 0)
+{
+    <div class="no-data-card">
+        <div class="no-data-icon">📜</div>
+        <h3>No Rules to Test</h3>
+        <p>Create some rules first to test app launches!</p>
+        <a href="/rules" class="btn btn-primary">Create Rules</a>
+    </div>
+}
+else
+{
+    <div class="test-info">
+        <div class="info-card">
+            <h3>How to Test</h3>
+            <p>Click "Simulate Launch" for any app that's monitored by a rule. If the rule's usage threshold is exceeded, the blocking modal should appear.</p>
+        </div>
+    </div>
+
+    @foreach (var rule in Rules.Where(r => r.IsEnabled))
+    {
+        <div class="rule-test-section">
+            <h3 class="rule-title">📋 @rule.Name</h3>
+            <div class="rule-info">
+                <span><strong>Limit:</strong> @FormatTime(rule.ThresholdInMilliseconds)</span>
+                @if (UsageData.TryGetValue(rule.Id, out var usage))
+                {
+                    <span><strong>Current Usage:</strong> @FormatTime(usage)</span>
+                    <span class="usage-status @(usage >= rule.ThresholdInMilliseconds ? "exceeded" : "within")">
+                        @if (usage >= rule.ThresholdInMilliseconds)
+                        {
+                            <span>⚠️ Limit Exceeded</span>
+                        }
+                        else
+                        {
+                            <span>✅ Within Limit</span>
+                        }
+                    </span>
+                }
+            </div>
+
+            <div class="monitored-apps">
+                @foreach (var (packageName, appName) in rule.SelectedPackages.Zip(rule.SelectedAppNames))
+                {
+                    <div class="app-test-item">
+                        <div class="app-info">
+                            <span class="app-name">@appName</span>
+                            <span class="package-name">@packageName</span>
+                        </div>
+                        <button class="btn-simulate" @onclick="() => SimulateLaunch(packageName, appName)">
+                            <span class="btn-icon">🚀</span>
+                            Simulate Launch
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private List<AppRule>? Rules;
+    private Dictionary<string, long> UsageData = new();
+    private AppLaunchEventArgs? LastLaunchEvent;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRules();
+        await LoadUsageData();
+
+        // Subscribe to launch events
+        AppLaunchMonitor.AppLaunched += OnAppLaunched;
+    }
+
+    private void OnAppLaunched(object? sender, AppLaunchEventArgs e)
+    {
+        InvokeAsync(() =>
+        {
+            LastLaunchEvent = e;
+            StateHasChanged();
+        });
+    }
+
+    private async Task LoadRules()
+    {
+        Rules = await RuleService.GetRulesAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadUsageData()
+    {
+        if (Rules == null) return;
+
+        foreach (var rule in Rules)
+        {
+            if (rule.SelectedPackages.Count > 0)
+            {
+                var usage = await RuleService.GetCombinedUsageForAppsAsync(rule.SelectedPackages);
+                UsageData[rule.Id] = usage;
+            }
+        }
+        StateHasChanged();
+    }
+
+    private void SimulateLaunch(string packageName, string appName)
+    {
+        // Manually trigger the app launch event
+        var eventArgs = new AppLaunchEventArgs
+            {
+                PackageName = packageName,
+                AppName = appName,
+                LaunchedAt = DateTime.Now
+            };
+
+        // Fire the event on the launch monitor
+        AppLaunchMonitor.GetType()
+            .GetEvent("AppLaunched")?
+            .GetRaiseMethod(true)?
+            .Invoke(AppLaunchMonitor, new object[] { AppLaunchMonitor, eventArgs });
+    }
+
+    private string FormatTime(long milliseconds)
+    {
+        if (milliseconds <= 0) return "0m";
+
+        var time = TimeSpan.FromMilliseconds(milliseconds);
+        var parts = new List<string>();
+
+        if (time.TotalDays >= 1)
+        {
+            var days = (int)time.TotalDays;
+            parts.Add($"{days}d");
+            time = time.Subtract(TimeSpan.FromDays(days));
+        }
+
+        if (time.Hours > 0) parts.Add($"{time.Hours}h");
+        if (time.Minutes > 0) parts.Add($"{time.Minutes}m");
+        if (parts.Count == 0 && time.Seconds > 0) parts.Add($"{time.Seconds}s");
+
+        return parts.Count > 0 ? string.Join(" ", parts) : "0m";
+    }
+
+    public void Dispose()
+    {
+        AppLaunchMonitor.AppLaunched -= OnAppLaunched;
+    }
+}

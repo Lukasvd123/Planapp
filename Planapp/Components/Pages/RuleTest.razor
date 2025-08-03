@@ -1,0 +1,170 @@
+﻿@page "/rule-test"
+@inject Planapp.Services.IRuleService RuleService
+@inject Planapp.Services.IRuleBlockService RuleBlockService
+@using Planapp.Models
+
+<div class="page-header">
+    <h1>🧪 Rule Testing</h1>
+    <p class="page-subtitle">Test your rules without waiting for time limits</p>
+</div>
+
+@if (Rules == null)
+{
+    <div class="loading-card">
+        <div class="loading-spinner"></div>
+        <h3>Loading rules...</h3>
+    </div>
+}
+else if (Rules.Count == 0)
+{
+    <div class="no-data-card">
+        <div class="no-data-icon">📜</div>
+        <h3>No Rules to Test</h3>
+        <p>Create some rules first to test them here!</p>
+        <a href="/rules" class="btn btn-primary">Create Rules</a>
+    </div>
+}
+else
+{
+    <div class="test-info">
+        <div class="info-card">
+            <h3>How it works</h3>
+            <p>This page allows you to manually trigger rules for testing purposes. Click "Test Rule" to simulate what happens when a rule's time limit is reached.</p>
+        </div>
+    </div>
+
+    <div class="rules-test-grid">
+        @foreach (var rule in Rules.Where(r => r.IsEnabled))
+        {
+            <div class="test-rule-card">
+                <div class="rule-header">
+                    <h3 class="rule-name">@rule.Name</h3>
+                    <span class="rule-type @rule.ActionType.ToLower()">
+                        @if (rule.ActionType == "OpenApp")
+                        {
+                            <span>🚀 Open @rule.TargetAppName</span>
+                        }
+                        else
+                        {
+                            <span>🔒 Lock in App</span>
+                        }
+                    </span>
+                </div>
+
+                <div class="rule-details">
+                    <div class="detail-item">
+                        <strong>Apps:</strong>
+                        @string.Join(", ", rule.SelectedAppNames.Take(2))@(rule.SelectedAppNames.Count > 2 ? "..." : "")
+                    </div>
+                    <div class="detail-item">
+                        <strong>Limit:</strong>
+                        @if (rule.ThresholdHours > 0)
+                        {
+                            <span>@rule.ThresholdHours h @rule.ThresholdMinutes m</span>
+                        }
+                        else
+                        {
+                            <span>@rule.ThresholdMinutes minutes</span>
+                        }
+                    </div>
+
+                    @if (UsageData.TryGetValue(rule.Id, out var usage))
+                    {
+                        <div class="detail-item">
+                            <strong>Current Usage:</strong> @FormatTime(usage)
+                        </div>
+                    }
+                </div>
+
+                <div class="test-actions">
+                    <button class="btn-test" @onclick="() => TestRule(rule)" disabled="@IsTestingRule">
+                        @if (IsTestingRule)
+                        {
+                            <span class="btn-icon spinning">⏳</span>
+                            <span>Testing...</span>
+                        }
+                        else
+                        {
+                            <span class="btn-icon">🧪</span>
+                            <span>Test Rule</span>
+                        }
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<AppRule>? Rules;
+    private Dictionary<string, long> UsageData = new();
+    private bool IsTestingRule = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRules();
+        await LoadUsageData();
+    }
+
+    private async Task LoadRules()
+    {
+        Rules = await RuleService.GetRulesAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadUsageData()
+    {
+        if (Rules == null) return;
+
+        foreach (var rule in Rules)
+        {
+            if (rule.SelectedPackages.Count > 0)
+            {
+                var usage = await RuleService.GetCombinedUsageForAppsAsync(rule.SelectedPackages);
+                UsageData[rule.Id] = usage;
+            }
+        }
+        StateHasChanged();
+    }
+
+    private async Task TestRule(AppRule rule)
+    {
+        if (IsTestingRule) return;
+
+        IsTestingRule = true;
+        StateHasChanged();
+
+        try
+        {
+            await RuleBlockService.TriggerRuleBlock(rule);
+        }
+        finally
+        {
+            // Add a delay to prevent rapid clicking
+            await Task.Delay(2000);
+            IsTestingRule = false;
+            StateHasChanged();
+        }
+    }
+
+    private string FormatTime(long milliseconds)
+    {
+        if (milliseconds <= 0) return "0m";
+
+        var time = TimeSpan.FromMilliseconds(milliseconds);
+        var parts = new List<string>();
+
+        if (time.TotalDays >= 1)
+        {
+            var days = (int)time.TotalDays;
+            parts.Add($"{days}d");
+            time = time.Subtract(TimeSpan.FromDays(days));
+        }
+
+        if (time.Hours > 0) parts.Add($"{time.Hours}h");
+        if (time.Minutes > 0) parts.Add($"{time.Minutes}m");
+        if (parts.Count == 0 && time.Seconds > 0) parts.Add($"{time.Seconds}s");
+
+        return parts.Count > 0 ? string.Join(" ", parts) : "0m";
+    }
+}

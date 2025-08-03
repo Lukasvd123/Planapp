@@ -1,0 +1,271 @@
+﻿@page "/rules/select-apps/{RuleId}"
+@page "/rules/select-target/{RuleId}"
+@inject Planapp.Services.IRuleService RuleService
+@inject NavigationManager Navigation
+@using Planapp.Models
+
+<div class="page-header">
+    <h1>📱 @(IsTargetSelection ? "Select Target App" : "Select Apps")</h1>
+    <p class="page-subtitle">
+        @if (IsTargetSelection)
+        {
+            <span>Choose which app to open when the rule triggers</span>
+        }
+        else
+        {
+            <span>Choose which apps to monitor for this rule</span>
+        }
+    </p>
+</div>
+
+<div class="selection-controls">
+    <div class="search-container">
+        <input type="text" class="search-input" placeholder="Search apps..." @bind="SearchQuery" @oninput="OnSearchChanged" />
+        <span class="search-icon">🔍</span>
+    </div>
+
+    @if (!IsTargetSelection)
+    {
+        <div class="selection-info">
+            <span class="selection-count">@SelectedApps.Count selected</span>
+            @if (SelectedApps.Count > 0)
+            {
+                <button class="btn-clear" @onclick="ClearSelection">Clear All</button>
+            }
+        </div>
+    }
+</div>
+
+@if (Apps == null)
+{
+    <div class="loading-card">
+        <div class="loading-spinner"></div>
+        <h3>Loading apps...</h3>
+        <p>This may take a moment</p>
+    </div>
+}
+else if (FilteredApps.Count == 0)
+{
+    <div class="no-data-card">
+        <div class="no-data-icon">📱</div>
+        <h3>No Apps Found</h3>
+        @if (!string.IsNullOrEmpty(SearchQuery))
+        {
+            <p>No apps match your search for "@SearchQuery"</p>
+            <button class="btn btn-secondary" @onclick="ClearSearch">Clear Search</button>
+        }
+        else
+        {
+            <p>No apps could be loaded from your device</p>
+        }
+    </div>
+}
+else
+{
+    <div class="apps-grid">
+        @foreach (var app in FilteredApps)
+        {
+            var isSelected = IsTargetSelection ? (SelectedTargetApp == app.PackageName) : SelectedApps.Contains(app.PackageName);
+
+            <div class="app-item @(isSelected ? "selected" : "")" @onclick="() => ToggleApp(app)">
+                <div class="app-icon-container">
+                    @if (app.HasIcon)
+                    {
+                        <img src="data:image/png;base64,@app.IconBase64"
+                             class="app-icon"
+                             alt="@app.AppName icon"
+                             loading="lazy" />
+                    }
+                    else
+                    {
+                        <div class="app-icon-fallback">
+                            @GetAppInitial(app.AppName)
+                        </div>
+                    }
+
+                    @if (isSelected)
+                    {
+                        <div class="selection-indicator">
+                            @if (IsTargetSelection)
+                            {
+                                <span class="target-badge">🎯</span>
+                            }
+                            else
+                            {
+                                <span class="check-badge">✓</span>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="app-details">
+                    <h3 class="app-name" title="@app.AppName">@app.AppName</h3>
+                    <p class="package-name" title="@app.PackageName">@app.PackageName</p>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+<div class="bottom-actions">
+    <button class="btn btn-secondary" @onclick="Cancel">
+        Cancel
+    </button>
+    <button class="btn btn-primary" @onclick="SaveSelection" disabled="@(!IsSelectionValid)">
+        <span class="btn-icon">✅</span>
+        @(IsTargetSelection ? "Select Target" : $"Select {SelectedApps.Count} Apps")
+    </button>
+</div>
+
+@code {
+    [Parameter] public string RuleId { get; set; } = "";
+
+    private List<AppInfo>? Apps;
+    private List<AppInfo> FilteredApps = new();
+    private HashSet<string> SelectedApps = new();
+    private string SelectedTargetApp = "";
+    private string SearchQuery = "";
+    private AppRule? CurrentRule;
+
+    private bool IsTargetSelection => Navigation.Uri.Contains("/select-target/");
+    private bool IsSelectionValid => IsTargetSelection ? !string.IsNullOrEmpty(SelectedTargetApp) : SelectedApps.Count > 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCurrentRule();
+        await LoadApps();
+        InitializeSelection();
+        FilterApps();
+    }
+
+    private async Task LoadCurrentRule()
+    {
+        var rules = await RuleService.GetRulesAsync();
+        CurrentRule = rules.FirstOrDefault(r => r.Id == RuleId);
+
+        if (CurrentRule == null)
+        {
+            Navigation.NavigateTo("/rules");
+        }
+    }
+
+    private async Task LoadApps()
+    {
+        Apps = await RuleService.GetAllAppsAsync();
+        FilteredApps = Apps?.ToList() ?? new List<AppInfo>();
+    }
+
+    private void InitializeSelection()
+    {
+        if (CurrentRule == null) return;
+
+        if (IsTargetSelection)
+        {
+            SelectedTargetApp = CurrentRule.TargetPackage ?? "";
+        }
+        else
+        {
+            SelectedApps = new HashSet<string>(CurrentRule.SelectedPackages);
+        }
+    }
+
+    private void ToggleApp(AppInfo app)
+    {
+        if (IsTargetSelection)
+        {
+            SelectedTargetApp = SelectedTargetApp == app.PackageName ? "" : app.PackageName;
+        }
+        else
+        {
+            if (SelectedApps.Contains(app.PackageName))
+            {
+                SelectedApps.Remove(app.PackageName);
+            }
+            else
+            {
+                SelectedApps.Add(app.PackageName);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        SearchQuery = e.Value?.ToString() ?? "";
+        FilterApps();
+    }
+
+    private void FilterApps()
+    {
+        if (Apps == null) return;
+
+        if (string.IsNullOrWhiteSpace(SearchQuery))
+        {
+            FilteredApps = Apps.ToList();
+        }
+        else
+        {
+            var query = SearchQuery.ToLower();
+            FilteredApps = Apps.Where(app =>
+                app.AppName.ToLower().Contains(query) ||
+                app.PackageName.ToLower().Contains(query)
+            ).ToList();
+        }
+        StateHasChanged();
+    }
+
+    private void ClearSelection()
+    {
+        if (IsTargetSelection)
+        {
+            SelectedTargetApp = "";
+        }
+        else
+        {
+            SelectedApps.Clear();
+        }
+        StateHasChanged();
+    }
+
+    private void ClearSearch()
+    {
+        SearchQuery = "";
+        FilterApps();
+    }
+
+    private async Task SaveSelection()
+    {
+        if (CurrentRule == null) return;
+
+        if (IsTargetSelection)
+        {
+            if (!string.IsNullOrEmpty(SelectedTargetApp))
+            {
+                CurrentRule.TargetPackage = SelectedTargetApp;
+                var targetApp = Apps?.FirstOrDefault(a => a.PackageName == SelectedTargetApp);
+                CurrentRule.TargetAppName = targetApp?.AppName ?? SelectedTargetApp;
+            }
+        }
+        else
+        {
+            CurrentRule.SelectedPackages = SelectedApps.ToList();
+            CurrentRule.SelectedAppNames = Apps?.Where(a => SelectedApps.Contains(a.PackageName))
+                                                .Select(a => a.AppName)
+                                                .ToList() ?? new List<string>();
+        }
+
+        await RuleService.SaveRuleAsync(CurrentRule);
+        Navigation.NavigateTo($"/rules/edit/{RuleId}");
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo($"/rules/edit/{RuleId}");
+    }
+
+    private string GetAppInitial(string appName)
+    {
+        if (string.IsNullOrEmpty(appName)) return "?";
+        return appName[0].ToString().ToUpper();
+    }
+}

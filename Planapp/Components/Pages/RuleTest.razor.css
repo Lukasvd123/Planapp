@@ -1,0 +1,254 @@
+/* Rule Test Page Styles */
+.page-header {
+    text-align: center;
+    margin-bottom: 2rem;
+    padding: 1rem 0;
+}
+
+    .page-header h1 {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 700;
+        color: #333;
+        line-height: 1.2;
+    }
+
+.page-subtitle {
+    margin: 0.5rem 0 0 0;
+    color: #666;
+    font-size: 1.1rem;
+}
+
+/* Test Info */
+.test-info {
+    margin-bottom: 2rem;
+}
+
+.info-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+    .info-card h3 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.3rem;
+    }
+
+    .info-card p {
+        margin: 0;
+        opacity: 0.9;
+        line-height: 1.5;
+    }
+
+/* Loading and No Data Cards */
+.loading-card, .no-data-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 16px;
+    padding: 2rem;
+    text-align: center;
+    margin: 2rem 0;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255,255,255,0.3);
+    border-top: 4px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.no-data-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+/* Rules Test Grid */
+.rules-test-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.test-rule-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    border: 1px solid rgba(0,0,0,0.05);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+    .test-rule-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+
+.rule-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.rule-name {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.rule-type {
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+    .rule-type.openapp {
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+
+    .rule-type.lockinapp {
+        background: #fff3e0;
+        color: #f57c00;
+    }
+
+.rule-details {
+    margin-bottom: 1.5rem;
+}
+
+.detail-item {
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+    .detail-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .detail-item strong {
+        color: #666;
+        font-weight: 500;
+    }
+
+.test-actions {
+    display: flex;
+    justify-content: center;
+}
+
+.btn-test {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    min-width: 120px;
+    justify-content: center;
+}
+
+    .btn-test:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-test:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+.btn-icon {
+    font-size: 1rem;
+    transition: transform 0.3s ease;
+}
+
+    .btn-icon.spinning {
+        animation: spin 1s linear infinite;
+    }
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transform: translateZ(0);
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .rules-test-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .rule-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .page-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .test-rule-card {
+        padding: 1rem;
+    }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .loading-spinner, .btn-icon.spinning {
+        animation: none;
+    }
+}

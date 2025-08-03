@@ -1,0 +1,162 @@
+﻿@using Planapp.Models
+@inject IJSRuntime JSRuntime
+
+@if (IsVisible && BlockedRule != null)
+{
+    <div class="rule-block-overlay" @onclick:preventDefault="true" @onclick:stopPropagation="true">
+        <div class="rule-block-modal">
+            <div class="block-header">
+                <div class="block-icon">⏰</div>
+                <h2 class="block-title">Time Limit Reached</h2>
+            </div>
+
+            <div class="block-content">
+                <h3 class="rule-name">@BlockedRule.Name</h3>
+                <p class="block-message">
+                    You've reached your time limit for the selected apps.
+                </p>
+
+                <div class="usage-summary">
+                    <div class="usage-detail">
+                        <span class="usage-label">Time Limit:</span>
+                        <span class="usage-value">@FormatTime(BlockedRule.ThresholdInMilliseconds)</span>
+                    </div>
+                    <div class="usage-detail">
+                        <span class="usage-label">Apps:</span>
+                        <span class="usage-value">@string.Join(", ", BlockedRule.SelectedAppNames.Take(3))@(BlockedRule.SelectedAppNames.Count > 3 ? "..." : "")</span>
+                    </div>
+                </div>
+
+                @if (ShowCountdown)
+                {
+                    <div class="countdown-section">
+                        <p class="countdown-text">You can continue in:</p>
+                        <div class="countdown-timer">@CountdownText</div>
+                        <div class="countdown-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: @ProgressPercentage%"></div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="block-actions">
+                @if (ShowCountdown)
+                {
+                    <button class="btn-block disabled" disabled>
+                        <span class="btn-icon">⏳</span>
+                        Wait @CountdownText
+                    </button>
+                }
+                else
+                {
+                    <button class="btn-block primary" @onclick="Acknowledge">
+                        <span class="btn-icon">✓</span>
+                        I Understand
+                    </button>
+                }
+
+                @if (BlockedRule.ActionType == "OpenApp" && !string.IsNullOrEmpty(BlockedRule.TargetAppName))
+                {
+                    <button class="btn-block secondary" @onclick="OpenTargetApp">
+                        <span class="btn-icon">🚀</span>
+                        Open @BlockedRule.TargetAppName
+                    </button>
+                }
+            </div>
+
+            <div class="block-footer">
+                <p class="footer-text">
+                    This limit helps you maintain healthy app usage habits.
+                </p>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsVisible { get; set; }
+    [Parameter] public AppRule? BlockedRule { get; set; }
+    [Parameter] public EventCallback OnAcknowledge { get; set; }
+    [Parameter] public EventCallback<string> OnOpenApp { get; set; }
+    [Parameter] public int CountdownSeconds { get; set; } = 30;
+
+    private bool ShowCountdown => CountdownSeconds > 0;
+    private string CountdownText => $"{CountdownSeconds}s";
+    private double ProgressPercentage => CountdownSeconds > 0 ? ((30.0 - CountdownSeconds) / 30.0) * 100 : 100;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsVisible && ShowCountdown)
+        {
+            await StartCountdown();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && IsVisible)
+        {
+            await PreventBackNavigation();
+        }
+    }
+
+    private async Task StartCountdown()
+    {
+        while (CountdownSeconds > 0 && IsVisible)
+        {
+            await Task.Delay(1000);
+            CountdownSeconds--;
+            StateHasChanged();
+        }
+    }
+
+    private async Task PreventBackNavigation()
+    {
+        await JSRuntime.InvokeVoidAsync("eval", @"
+            // Prevent back button
+            history.pushState(null, null, location.href);
+            window.addEventListener('popstate', function(event) {
+                if (document.querySelector('.rule-block-overlay')) {
+                    history.pushState(null, null, location.href);
+                }
+            });
+
+            // Prevent escape key and other shortcuts
+            document.addEventListener('keydown', function(e) {
+                if (document.querySelector('.rule-block-overlay')) {
+                    if (e.key === 'Escape' || e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }
+                }
+            });
+        ");
+    }
+
+    private async Task Acknowledge()
+    {
+        await OnAcknowledge.InvokeAsync();
+    }
+
+    private async Task OpenTargetApp()
+    {
+        if (BlockedRule?.TargetPackage != null)
+        {
+            await OnOpenApp.InvokeAsync(BlockedRule.TargetPackage);
+        }
+    }
+
+    private string FormatTime(long milliseconds)
+    {
+        var time = TimeSpan.FromMilliseconds(milliseconds);
+        var parts = new List<string>();
+
+        if (time.Hours > 0) parts.Add($"{time.Hours}h");
+        if (time.Minutes > 0) parts.Add($"{time.Minutes}m");
+
+        return parts.Count > 0 ? string.Join(" ", parts) : "0m";
+    }
+}

@@ -1,0 +1,211 @@
+﻿@page "/rules/edit/{RuleId}"
+@inject Planapp.Services.IRuleService RuleService
+@inject NavigationManager Navigation
+@using Planapp.Models
+
+<div class="page-header">
+    <h1>@(IsNewRule ? "➕ Create New Rule" : "✏️ Edit Rule")</h1>
+    <p class="page-subtitle">Set up your app usage limits and actions</p>
+</div>
+
+@if (CurrentRule == null)
+{
+        <div class="loading-card">
+            <div class="loading-spinner"></div>
+            <h3>Loading...</h3>
+        </div>
+}
+else
+{
+        <div class="rule-form">
+            <div class="form-section">
+                <label class="form-label">Rule Name</label>
+                <input type="text" class="form-input" @bind="CurrentRule.Name" placeholder="Enter a name for this rule" />
+            </div>
+
+            <div class="form-section">
+                <label class="form-label">Selected Apps (@CurrentRule.SelectedPackages.Count selected)</label>
+                <div class="app-selection-preview">
+                @if (CurrentRule.SelectedAppNames.Count > 0)
+                {
+                            <div class="selected-apps">
+                        @foreach (var appName in CurrentRule.SelectedAppNames.Take(5))
+                        {
+                                        <span class="app-chip">@appName</span>
+                        }
+                        @if (CurrentRule.SelectedAppNames.Count > 5)
+                        {
+                                        <span class="app-chip more">+@(CurrentRule.SelectedAppNames.Count - 5) more</span>
+                        }
+                            </div>
+                }
+                else
+                {
+                            <p class="no-apps-selected">No apps selected</p>
+                }
+                    <button type="button" class="btn btn-secondary" @onclick="OpenAppSelection">
+                        <span class="btn-icon">📱</span>
+                        Select Apps
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <label class="form-label">Time Limit</label>
+                <div class="time-inputs">
+                    <div class="time-input-group">
+                        <input type="number" class="form-input-small" @bind="CurrentRule.ThresholdHours" min="0" max="23" />
+                        <span class="time-label">hours</span>
+                    </div>
+                    <div class="time-input-group">
+                        <input type="number" class="form-input-small" @bind="CurrentRule.ThresholdMinutes" min="0" max="59" />
+                        <span class="time-label">minutes</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <label class="form-label">Action when limit is reached</label>
+                <div class="action-selection">
+                    <div class="radio-option @(CurrentRule.ActionType == "LockInApp" ? "selected" : "")" @onclick="@(() => SetActionType("LockInApp"))">
+                        <input type="radio" name="actionType" value="LockInApp" checked="@(CurrentRule.ActionType == "LockInApp")" />
+                        <div class="radio-content">
+                            <span class="radio-icon">🔒</span>
+                            <span class="radio-text">Lock in current app</span>
+                        </div>
+                    </div>
+                    <div class="radio-option @(CurrentRule.ActionType == "OpenApp" ? "selected" : "")" @onclick="@(() => SetActionType("OpenApp"))">
+                        <input type="radio" name="actionType" value="OpenApp" checked="@(CurrentRule.ActionType == "OpenApp")" />
+                        <div class="radio-content">
+                            <span class="radio-icon">🚀</span>
+                            <span class="radio-text">Open specific app</span>
+                        </div>
+                    </div>
+                </div>
+
+            @if (CurrentRule.ActionType == "OpenApp")
+            {
+                        <div class="target-app-selection">
+                            <label class="form-label">Target app to open</label>
+                    @if (!string.IsNullOrEmpty(CurrentRule.TargetAppName))
+                    {
+                                    <div class="selected-target-app">
+                                        <span class="app-chip">@CurrentRule.TargetAppName</span>
+                                    </div>
+                    }
+                    else
+                    {
+                                    <p class="no-target-app">No target app selected</p>
+                    }
+                            <button type="button" class="btn btn-secondary" @onclick="OpenTargetAppSelection">
+                                <span class="btn-icon">🎯</span>
+                                Select Target App
+                            </button>
+                        </div>
+            }
+            </div>
+
+            <div class="form-section">
+                <div class="toggle-container" @onclick="ToggleEnabled">
+                    <input type="checkbox" @bind="CurrentRule.IsEnabled" />
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-label">Enable this rule</span>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" @onclick="Cancel">
+                    Cancel
+                </button>
+                <button type="button" class="btn btn-primary" @onclick="SaveRule" disabled="@(!IsFormValid)">
+                    <span class="btn-icon">💾</span>
+                @(IsNewRule ? "Create Rule" : "Update Rule")
+                </button>
+            </div>
+        </div>
+}
+
+@code {
+    [Parameter] public string RuleId { get; set; } = "";
+
+    private AppRule? CurrentRule;
+    private bool IsNewRule => RuleId == "new";
+
+    private bool IsFormValid =>
+        CurrentRule != null &&
+        !string.IsNullOrWhiteSpace(CurrentRule.Name) &&
+        CurrentRule.SelectedPackages.Count > 0 &&
+        (CurrentRule.ActionType != "OpenApp" || !string.IsNullOrEmpty(CurrentRule.TargetPackage));
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IsNewRule)
+        {
+            CurrentRule = new AppRule
+                {
+                    Name = "",
+                    ThresholdHours = 1,
+                    ThresholdMinutes = 0,
+                    ActionType = "LockInApp",
+                    IsEnabled = true
+                };
+        }
+        else
+        {
+            var rules = await RuleService.GetRulesAsync();
+            CurrentRule = rules.FirstOrDefault(r => r.Id == RuleId);
+
+            if (CurrentRule == null)
+            {
+                Navigation.NavigateTo("/rules");
+                return;
+            }
+        }
+    }
+
+    private void SetActionType(string actionType)
+    {
+        if (CurrentRule != null)
+        {
+            CurrentRule.ActionType = actionType;
+            StateHasChanged();
+        }
+    }
+
+    private void OpenAppSelection()
+    {
+        if (CurrentRule == null) return;
+
+        // Store current rule in session or navigation state
+        Navigation.NavigateTo($"/rules/select-apps/{CurrentRule.Id}");
+    }
+
+    private void OpenTargetAppSelection()
+    {
+        if (CurrentRule == null) return;
+
+        Navigation.NavigateTo($"/rules/select-target/{CurrentRule.Id}");
+    }
+
+    private async Task SaveRule()
+    {
+        if (CurrentRule == null || !IsFormValid) return;
+
+        await RuleService.SaveRuleAsync(CurrentRule);
+        Navigation.NavigateTo("/rules");
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/rules");
+    }
+
+    private void ToggleEnabled()
+    {
+        if (CurrentRule != null)
+        {
+            CurrentRule.IsEnabled = !CurrentRule.IsEnabled;
+            StateHasChanged();
+        }
+    }
+}

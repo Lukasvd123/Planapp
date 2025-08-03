@@ -256,3 +256,47 @@
         transition: none !important;
     }
 }
+/* Add this icon style to the existing NavMenu.razor.css file */
+
+.bi-rules-nav-menu {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-clipboard-check' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M10.854 7.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 9.793l2.646-2.647a.5.5 0 0 1 .708 0z'/%3E%3Cpath d='M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z'/%3E%3Cpath d='M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z'/%3E%3C/svg%3E");
+}
+/* Add these icon styles to the existing NavMenu.razor.css file */
+
+.bi-rules-nav-menu {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-clipboard-check' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M10.854 7.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 9.793l2.646-2.647a.5.5 0 0 1 .708 0z'/%3E%3Cpath d='M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z'/%3E%3Cpath d='M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z'/%3E%3C/svg%3E");
+}
+
+.bi-test-nav-menu {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-flask' viewBox='0 0 16 16'%3E%3Cpath d='M6.5 2.5V3h3v-.5a.5.5 0 0 1 1 0V3h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H10v4.828l2.146 2.146a.5.5 0 0 1 .146.354v1.5a1.5 1.5 0 0 1-1.5 1.5h-5.5a1.5 1.5 0 0 1-1.5-1.5v-1.5a.5.5 0 0 1 .146-.354L6 9.328V5H4.5a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5H5v-.5a.5.5 0 0 1 1 0zM7 5v4.5a.5.5 0 0 1-.146.354L5 11.707V13a.5.5 0 0 0 .5.5h5a.5.5 0 0 0 .5-.5V11.707L9.146 9.854A.5.5 0 0 1 9 9.5V5H7z'/%3E%3C/svg%3E");
+}
+
+.bi-launch-test-nav-menu {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-rocket-takeoff' viewBox='0 0 16 16'%3E%3Cpath d='M9.752 6.193c.599.43 1.068.85 1.336 1.254.29.436.415.895.395 1.361a.61.61 0 0 1-.542.57 8.96 8.96 0 0 1-1.84-.065 9.077 9.077 0 0 1-2.982-1.033.5.5 0 0 1-.178-.65l.338-.465a.5.5 0 0 1 .644-.178l.048.034c.18.129.448.299.747.491z'/%3E%3Cpath d='M6.066 4.723C4.947 2.328 3.978 1.707 3.978 1.707S1.97.62.48 4.014C-.491 6.7-.395 9.293.803 11.36c1.198 2.065 2.678 2.678 2.678 2.678s1.8-1.04 2.96-3.264c1.159-2.225 1.554-5.331-.375-6.051z'/%3E%3Cpath d='M5 8a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z'/%3E%3C/svg%3E");
+}
+/* Performance optimizations */
+.nav-scrollable {
+    transform: translateZ(0); /* Force hardware acceleration */
+}
+
+.navbar-toggler-label {
+    transform: translateZ(0);
+}
+
+/* Continue with the rest of your existing CSS exactly as it is... 
+   Just remove the line that says:
+   contain: layout;
+   
+   from the .nav-scrollable class at the top */
+
+/* Performance optimizations */
+.nav-scrollable {
+    transform: translateZ(0); /* Force hardware acceleration */
+}
+
+.navbar-toggler-label {
+    transform: translateZ(0);
+}
+
+/* IMPORTANT: Remove the line that says "contain: layout;" from your existing NavMenu.razor.css file.
+   Keep everything else exactly the same - just delete that one line from the .nav-scrollable class. */
