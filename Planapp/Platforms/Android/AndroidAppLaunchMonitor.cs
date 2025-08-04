@@ -16,6 +16,7 @@ namespace Planapp.Platforms.Android
         private CancellationTokenSource? _cancellationTokenSource;
         private readonly HashSet<string> _recentLaunches = new();
         private DateTime _lastCheckTime = DateTime.Now;
+        private string _lastForegroundApp = string.Empty;
 
         public event EventHandler<AppLaunchEventArgs>? AppLaunched;
         public bool IsMonitoring { get; private set; }
@@ -25,6 +26,7 @@ namespace Planapp.Platforms.Android
             _logger = logger;
         }
 
+        // Simplified member names as per IDE0037 diagnostic suggestion
         public async Task StartMonitoringAsync()
         {
             if (IsMonitoring)
@@ -37,10 +39,10 @@ namespace Planapp.Platforms.Android
 
             _cancellationTokenSource = new CancellationTokenSource();
             IsMonitoring = true;
-            _lastCheckTime = DateTime.Now;
+            _lastCheckTime = DateTime.Now.AddMinutes(-1); // Look back 1 minute initially
 
             // Start monitoring task
-            _ = Task.Run(async () => await MonitorAppLaunches(_cancellationTokenSource.Token));
+            _ = Task.Run(() => MonitorAppLaunches(_cancellationTokenSource.Token));
 
             await Task.CompletedTask;
         }
@@ -80,8 +82,8 @@ namespace Planapp.Platforms.Android
                         _logger.LogError(ex, "Error checking for app launches");
                     }
 
-                    // Check every 2 seconds for new app launches
-                    await Task.Delay(2000, cancellationToken);
+                    // Check every 1.5 seconds for new app launches
+                    await Task.Delay(1500, cancellationToken);
                 }
             }
             catch (OperationCanceledException)
@@ -103,10 +105,18 @@ namespace Planapp.Platforms.Android
             try
             {
                 var context = Platform.CurrentActivity?.ApplicationContext ?? global::Android.App.Application.Context;
-                if (context == null) return;
+                if (context == null)
+                {
+                    _logger.LogWarning("Android context not available for app launch monitoring");
+                    return;
+                }
 
                 var usageStatsManager = context.GetSystemService(Context.UsageStatsService) as UsageStatsManager;
-                if (usageStatsManager == null) return;
+                if (usageStatsManager == null)
+                {
+                    _logger.LogWarning("UsageStatsManager not available");
+                    return;
+                }
 
                 var currentTime = DateTime.Now;
                 var checkPeriod = currentTime - _lastCheckTime;
@@ -115,51 +125,65 @@ namespace Planapp.Platforms.Android
                 if (checkPeriod.TotalSeconds < 1) return;
 
                 var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
-                var startTime = endTime - (long)checkPeriod.TotalMilliseconds - 5000; // Extra 5 seconds buffer
+                var startTime = endTime - (long)checkPeriod.TotalMilliseconds - 2000; // Extra 2 seconds buffer
 
                 // Get usage events to detect app launches
                 var events = usageStatsManager.QueryEvents(startTime, endTime);
 
-                if (events == null) return;
+                if (events == null)
+                {
+                    _logger.LogDebug("No usage events returned");
+                    _lastCheckTime = currentTime;
+                    return;
+                }
 
-                var recentEvents = new List<(string PackageName, long TimeStamp)>();
+                var appLaunches = new List<(string PackageName, long TimeStamp, int EventType)>();
                 var eventObj = new UsageEvents.Event();
 
                 while (events.HasNextEvent)
                 {
                     events.GetNextEvent(eventObj);
 
-                    // Correctly compare the EventType using the UsageEventType enum
-                    if (eventObj.EventType == UsageEventType.ActivityResumed)
+                    // Log all events for debugging
+                    if (eventObj.EventType is (UsageEventType)(int)UsageEventType.ActivityResumed or
+                        (UsageEventType)(int)UsageEventType.MoveToForeground)
                     {
-                        recentEvents.Add((
+                        appLaunches.Add(((string PackageName, long TimeStamp, int EventType))(
                             PackageName: eventObj.PackageName ?? "",
-                            TimeStamp: eventObj.TimeStamp
+                            TimeStamp: eventObj.TimeStamp,
+                            EventType: eventObj.EventType
                         ));
                     }
                 }
 
-                // Process the most recent events
-                var uniqueLaunches = recentEvents
+                // Process recent app launches
+                var uniqueLaunches = appLaunches
                     .Where(e => !string.IsNullOrEmpty(e.PackageName))
+                    .Where(e => e.PackageName != "com.companyname.planapp") // Don't monitor our own app
                     .GroupBy(e => e.PackageName)
                     .Select(g => g.OrderByDescending(e => e.TimeStamp).First())
-                    .Where(e => !_recentLaunches.Contains(e.PackageName + e.TimeStamp))
+                    .OrderByDescending(e => e.TimeStamp)
                     .ToList();
+
+                _logger.LogDebug($"Found {uniqueLaunches.Count} unique app launches in the last {checkPeriod.TotalSeconds:F1} seconds");
 
                 foreach (var launch in uniqueLaunches)
                 {
                     var packageName = launch.PackageName;
-                    var launchKey = packageName + launch.TimeStamp;
+                    var launchKey = $"{packageName}_{launch.TimeStamp}";
 
                     if (_recentLaunches.Contains(launchKey)) continue;
 
+                    // Check if this is a different app than what was previously foreground
+                    if (packageName == _lastForegroundApp) continue;
+
                     _recentLaunches.Add(launchKey);
+                    _lastForegroundApp = packageName;
 
                     // Clean old entries to prevent memory leak
-                    if (_recentLaunches.Count > 100)
+                    if (_recentLaunches.Count > 50)
                     {
-                        var oldEntries = _recentLaunches.Take(50).ToList();
+                        var oldEntries = _recentLaunches.Take(25).ToList();
                         foreach (var old in oldEntries)
                         {
                             _recentLaunches.Remove(old);
@@ -168,7 +192,7 @@ namespace Planapp.Platforms.Android
 
                     var appName = UsageStatsHelper.GetAppName(packageName);
 
-                    _logger.LogInformation($"App launched: {appName} ({packageName})");
+                    _logger.LogInformation($"App launched: {appName} ({packageName}) at {DateTimeOffset.FromUnixTimeMilliseconds(launch.TimeStamp):HH:mm:ss}");
 
                     // Fire the event
                     AppLaunched?.Invoke(this, new AppLaunchEventArgs

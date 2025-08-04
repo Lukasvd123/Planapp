@@ -1,61 +1,4 @@
-/* Performance optimizations */
-.nav-scrollable {
-    contain: layout;
-    transform: translateZ(0); /* Force hardware acceleration */
-}
-
-.navbar-toggler-label {
-    transform: translateZ(0);
-}
-
-/* Hide the checkbox */
-.navbar-toggler {
-    display: none;
-}
-
-/* Optimized toggle button */
-.navbar-toggler-label {
-    cursor: pointer;
-    width: 3.5rem;
-    height: 2.5rem;
-    position: absolute;
-    top: 0.5rem;
-    left: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 0.375rem;
-    background: rgba(255, 255, 255, 0.1);
-    transition: background-color 0.2s ease, transform 0.1s ease;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 1001;
-}
-
-    .navbar-toggler-label:hover {
-        background-color: rgba(255, 255, 255, 0.2);
-        transform: scale(1.02);
-    }
-
-.navbar-toggler:checked + .navbar-toggler-label {
-    background-color: rgba(255, 255, 255, 0.3);
-}
-
-.navbar-toggler-icon {
-    display: inline-block;
-    width: 1.5em;
-    height: 1.5em;
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.85%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: 100%;
-    transition: transform 0.2s ease;
-}
-
-.navbar-toggler:checked + .navbar-toggler-label .navbar-toggler-icon {
-    transform: rotate(90deg);
-}
-
-/* Header styling */
+/* Top row styling */
 .top-row {
     height: 3.5rem;
     background-color: rgba(0,0,0,0.4);
@@ -68,7 +11,7 @@
 .container-fluid {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
     width: 100%;
 }
 
@@ -78,15 +21,49 @@
     text-decoration: none;
     font-weight: 700;
     letter-spacing: 0.5px;
-    transition: color 0.2s ease, transform 0.1s ease;
+    transition: all 0.3s ease;
 }
 
     .navbar-brand:hover {
         color: rgba(255, 255, 255, 0.8) !important;
-        transform: scale(1.02);
+        transform: scale(1.05);
     }
 
-/* Optimized icons */
+/* Hamburger button styling */
+.navbar-toggler {
+    padding: 0.25rem 0.5rem;
+    font-size: 1.25rem;
+    line-height: 1;
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 0.375rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    display: none; /* Hidden by default on desktop */
+}
+
+    .navbar-toggler:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .navbar-toggler:focus {
+        outline: none;
+        box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+    }
+
+.navbar-toggler-icon {
+    display: inline-block;
+    width: 1.5em;
+    height: 1.5em;
+    vertical-align: middle;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.85%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 100%;
+}
+
+/* Icons */
 .bi {
     display: inline-block;
     position: relative;
@@ -113,6 +90,18 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-phone' viewBox='0 0 16 16'%3E%3Cpath d='M11 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h6zM5 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H5z'/%3E%3Cpath d='M8 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2z'/%3E%3C/svg%3E");
 }
 
+.bi-rules-nav-menu {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-clipboard-check' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M10.854 7.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 9.793l2.646-2.647a.5.5 0 0 1 .708 0z'/%3E%3Cpath d='M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z'/%3E%3Cpath d='M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z'/%3E%3C/svg%3E");
+}
+
+.bi-test-nav-menu {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-flask' viewBox='0 0 16 16'%3E%3Cpath d='M6.5 2.5V3h3v-.5a.5.5 0 0 1 1 0V3h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H10v4.828l2.146 2.146a.5.5 0 0 1 .146.354v1.5a1.5 1.5 0 0 1-1.5 1.5h-5.5a1.5 1.5 0 0 1-1.5-1.5v-1.5a.5.5 0 0 1 .146-.354L6 9.328V5H4.5a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5H5v-.5a.5.5 0 0 1 1 0zM7 5v4.5a.5.5 0 0 1-.146.354L5 11.707V13a.5.5 0 0 0 .5.5h5a.5.5 0 0 0 .5-.5V11.707L9.146 9.854A.5.5 0 0 1 9 9.5V5H7z'/%3E%3C/svg%3E");
+}
+
+.bi-launch-test-nav-menu {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-rocket-takeoff' viewBox='0 0 16 16'%3E%3Cpath d='M9.752 6.193c.599.43 1.068.85 1.336 1.254.29.436.415.895.395 1.361a.61.61 0 0 1-.542.57 8.96 8.96 0 0 1-1.84-.065 9.077 9.077 0 0 1-2.982-1.033.5.5 0 0 1-.178-.65l.338-.465a.5.5 0 0 1 .644-.178l.048.034c.18.129.448.299.747.491z'/%3E%3Cpath d='M6.066 4.723C4.947 2.328 3.978 1.707 3.978 1.707S1.97.62.48 4.014C-.491 6.7-.395 9.293.803 11.36c1.198 2.065 2.678 2.678 2.678 2.678s1.8-1.04 2.96-3.264c1.159-2.225 1.554-5.331-.375-6.051z'/%3E%3Cpath d='M5 8a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z'/%3E%3C/svg%3E");
+}
+
 /* Navigation items */
 .nav-item {
     font-size: 0.9rem;
@@ -136,7 +125,7 @@
         line-height: 3rem;
         text-decoration: none;
         padding: 0 1rem;
-        transition: background-color 0.2s ease, color 0.2s ease, transform 0.1s ease;
+        transition: all 0.3s ease;
         margin: 0.25rem 0;
     }
 
@@ -157,52 +146,13 @@
 .nav-scrollable {
     display: block;
     background: inherit;
-    transition: transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    transition: transform 0.3s ease;
     transform: translateZ(0);
-}
-
-/* Mobile styles - Optimized */
-@media (max-width: 640.98px) {
-    .navbar-toggler-label {
-        display: flex;
-    }
-
-    .nav-scrollable {
-        position: fixed;
-        top: 3.5rem;
-        left: 0;
-        width: 280px;
-        height: calc(100vh - 3.5rem);
-        background: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
-        z-index: 1000;
-        box-shadow: 2px 0 20px rgba(0,0,0,0.3);
-        overflow-y: auto;
-        overflow-x: hidden;
-        backdrop-filter: blur(10px);
-        transform: translateX(-100%);
-    }
-
-    .navbar-toggler:checked ~ .nav-scrollable {
-        transform: translateX(0);
-    }
-
-        /* Backdrop overlay - More performant */
-        .navbar-toggler:checked ~ .nav-scrollable::after {
-            content: '';
-            position: fixed;
-            top: -3.5rem;
-            left: 280px;
-            width: calc(100vw - 280px);
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: -1;
-            backdrop-filter: blur(2px);
-        }
 }
 
 /* Desktop styles */
 @media (min-width: 641px) {
-    .navbar-toggler-label {
+    .navbar-toggler {
         display: none !important;
     }
 
@@ -217,7 +167,6 @@
         box-shadow: none !important;
     }
 
-        /* Custom scrollbar for desktop */
         .nav-scrollable::-webkit-scrollbar {
             width: 6px;
         }
@@ -236,6 +185,46 @@
             }
 }
 
+/* Mobile styles */
+@media (max-width: 640.98px) {
+    .navbar-toggler {
+        display: inline-block;
+    }
+
+    .nav-scrollable {
+        position: fixed;
+        top: 3.5rem;
+        left: 0;
+        width: 280px;
+        height: calc(100vh - 3.5rem);
+        background: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+        z-index: 1000;
+        box-shadow: 2px 0 20px rgba(0,0,0,0.3);
+        overflow-y: auto;
+        overflow-x: hidden;
+        backdrop-filter: blur(10px);
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+    }
+
+        .nav-scrollable.show {
+            transform: translateX(0);
+        }
+
+            /* Backdrop when menu is open */
+            .nav-scrollable.show::after {
+                content: '';
+                position: fixed;
+                top: -3.5rem;
+                left: 280px;
+                width: calc(100vw - 280px);
+                height: 100vh;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: -1;
+                backdrop-filter: blur(2px);
+            }
+}
+
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -248,55 +237,7 @@
         transition: none !important;
     }
 
-    .navbar-toggler-icon {
-        transition: none !important;
-    }
-
     .nav-item ::deep a {
         transition: none !important;
     }
 }
-/* Add this icon style to the existing NavMenu.razor.css file */
-
-.bi-rules-nav-menu {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-clipboard-check' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M10.854 7.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 9.793l2.646-2.647a.5.5 0 0 1 .708 0z'/%3E%3Cpath d='M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z'/%3E%3Cpath d='M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z'/%3E%3C/svg%3E");
-}
-/* Add these icon styles to the existing NavMenu.razor.css file */
-
-.bi-rules-nav-menu {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-clipboard-check' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M10.854 7.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 9.793l2.646-2.647a.5.5 0 0 1 .708 0z'/%3E%3Cpath d='M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z'/%3E%3Cpath d='M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z'/%3E%3C/svg%3E");
-}
-
-.bi-test-nav-menu {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-flask' viewBox='0 0 16 16'%3E%3Cpath d='M6.5 2.5V3h3v-.5a.5.5 0 0 1 1 0V3h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H10v4.828l2.146 2.146a.5.5 0 0 1 .146.354v1.5a1.5 1.5 0 0 1-1.5 1.5h-5.5a1.5 1.5 0 0 1-1.5-1.5v-1.5a.5.5 0 0 1 .146-.354L6 9.328V5H4.5a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5H5v-.5a.5.5 0 0 1 1 0zM7 5v4.5a.5.5 0 0 1-.146.354L5 11.707V13a.5.5 0 0 0 .5.5h5a.5.5 0 0 0 .5-.5V11.707L9.146 9.854A.5.5 0 0 1 9 9.5V5H7z'/%3E%3C/svg%3E");
-}
-
-.bi-launch-test-nav-menu {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='white' class='bi bi-rocket-takeoff' viewBox='0 0 16 16'%3E%3Cpath d='M9.752 6.193c.599.43 1.068.85 1.336 1.254.29.436.415.895.395 1.361a.61.61 0 0 1-.542.57 8.96 8.96 0 0 1-1.84-.065 9.077 9.077 0 0 1-2.982-1.033.5.5 0 0 1-.178-.65l.338-.465a.5.5 0 0 1 .644-.178l.048.034c.18.129.448.299.747.491z'/%3E%3Cpath d='M6.066 4.723C4.947 2.328 3.978 1.707 3.978 1.707S1.97.62.48 4.014C-.491 6.7-.395 9.293.803 11.36c1.198 2.065 2.678 2.678 2.678 2.678s1.8-1.04 2.96-3.264c1.159-2.225 1.554-5.331-.375-6.051z'/%3E%3Cpath d='M5 8a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z'/%3E%3C/svg%3E");
-}
-/* Performance optimizations */
-.nav-scrollable {
-    transform: translateZ(0); /* Force hardware acceleration */
-}
-
-.navbar-toggler-label {
-    transform: translateZ(0);
-}
-
-/* Continue with the rest of your existing CSS exactly as it is... 
-   Just remove the line that says:
-   contain: layout;
-   
-   from the .nav-scrollable class at the top */
-
-/* Performance optimizations */
-.nav-scrollable {
-    transform: translateZ(0); /* Force hardware acceleration */
-}
-
-.navbar-toggler-label {
-    transform: translateZ(0);
-}
-
-/* IMPORTANT: Remove the line that says "contain: layout;" from your existing NavMenu.razor.css file.
-   Keep everything else exactly the same - just delete that one line from the .nav-scrollable class. */

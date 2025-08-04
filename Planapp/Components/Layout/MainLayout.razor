@@ -1,10 +1,12 @@
 ﻿@inherits LayoutComponentBase
+@using Microsoft.Extensions.Logging
 @using Planapp.Components.Layout
 @using Planapp.Components.Shared
 @using Planapp.Services
 @using Planapp.Models
 @inject IRuleBlockService RuleBlockService
 @inject RuleMonitorService RuleMonitorService
+@inject ILogger<MainLayout> Logger
 @implements IDisposable
 
 <div class="page">
@@ -23,73 +25,176 @@
     </main>
 </div>
 
-<RuleBlockModal 
-    IsVisible="@IsRuleBlocked"
-    BlockedRule="@BlockedRule"
-    CountdownSeconds="@CountdownSeconds"
-    OnAcknowledge="@OnAcknowledgeRule"
-    OnOpenApp="@OnOpenTargetApp" />
+<RuleBlockModal IsVisible="@IsRuleBlocked"
+                BlockedRule="@BlockedRule"
+                CountdownSeconds="@CountdownSeconds"
+                OnAcknowledge="@OnAcknowledgeRule"
+                OnOpenApp="@OnOpenTargetApp" />
 
 @code {
     private bool IsRuleBlocked = false;
     private AppRule? BlockedRule = null;
     private int CountdownSeconds = 30;
     private Timer? CountdownTimer;
+    private bool _isInitialized = false;
 
     protected override async Task OnInitializedAsync()
     {
-        RuleBlockService.RuleTriggered += OnRuleTriggered;
-        RuleBlockService.RuleAcknowledged += OnRuleAcknowledged;
+        try
+        {
+            Logger.LogInformation("MainLayout initializing...");
 
-        // Start the rule monitoring service
-        await RuleMonitorService.StartAsync();
+            // Subscribe to rule block events
+            RuleBlockService.RuleTriggered += OnRuleTriggered;
+            RuleBlockService.RuleAcknowledged += OnRuleAcknowledged;
+
+            // Start the rule monitoring service
+            Logger.LogInformation("Starting rule monitoring service...");
+            await RuleMonitorService.StartAsync();
+
+            _isInitialized = true;
+            Logger.LogInformation("MainLayout initialized successfully");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error initializing MainLayout");
+        }
     }
 
     private void OnRuleTriggered(object? sender, RuleBlockEventArgs e)
     {
-        InvokeAsync(() =>
+        try
         {
-            BlockedRule = e.Rule;
-            IsRuleBlocked = true;
+            Logger.LogInformation($"Rule triggered: {e.Rule.Name}");
 
-            // Set countdown based on action type
-            CountdownSeconds = e.Rule.ActionType == "LockInApp" ? 30 : 10;
+            InvokeAsync(() =>
+            {
+                BlockedRule = e.Rule;
+                IsRuleBlocked = true;
 
-            StateHasChanged();
-        });
+                // Set countdown based on action type
+                CountdownSeconds = e.Rule.ActionType == "LockInApp" ? 30 : 15;
+
+                // Start countdown timer
+                StartCountdownTimer();
+
+                StateHasChanged();
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error handling rule triggered event");
+        }
     }
 
     private void OnRuleAcknowledged(object? sender, EventArgs e)
     {
-        InvokeAsync(() =>
+        try
         {
-            IsRuleBlocked = false;
-            BlockedRule = null;
-            CountdownSeconds = 30;
-            CountdownTimer?.Dispose();
-            CountdownTimer = null;
+            Logger.LogInformation("Rule acknowledged");
 
-            StateHasChanged();
-        });
+            InvokeAsync(() =>
+            {
+                IsRuleBlocked = false;
+                BlockedRule = null;
+                CountdownSeconds = 30;
+                StopCountdownTimer();
+
+                StateHasChanged();
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error handling rule acknowledged event");
+        }
+    }
+
+    private void StartCountdownTimer()
+    {
+        StopCountdownTimer(); // Stop any existing timer
+
+        CountdownTimer = new Timer(async _ =>
+        {
+            if (CountdownSeconds > 0)
+            {
+                CountdownSeconds--;
+                await InvokeAsync(StateHasChanged);
+            }
+            else
+            {
+                // Countdown finished, auto-acknowledge
+                await OnAcknowledgeRule();
+            }
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void StopCountdownTimer()
+    {
+        CountdownTimer?.Dispose();
+        CountdownTimer = null;
     }
 
     private async Task OnAcknowledgeRule()
     {
-        await RuleBlockService.AcknowledgeBlock();
+        try
+        {
+            Logger.LogInformation("User acknowledged rule block");
+            await RuleBlockService.AcknowledgeBlock();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error acknowledging rule block");
+        }
     }
 
     private async Task OnOpenTargetApp(string packageName)
     {
-        await RuleBlockService.OpenTargetApp(packageName);
+        try
+        {
+            Logger.LogInformation($"User requested to open target app: {packageName}");
+            await RuleBlockService.OpenTargetApp(packageName);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, $"Error opening target app: {packageName}");
+        }
     }
 
     public void Dispose()
     {
-        RuleBlockService.RuleTriggered -= OnRuleTriggered;
-        RuleBlockService.RuleAcknowledged -= OnRuleAcknowledged;
-        CountdownTimer?.Dispose();
+        try
+        {
+            Logger.LogInformation("MainLayout disposing...");
 
-        // Stop the rule monitoring service
-        _ = Task.Run(async () => await RuleMonitorService.StopAsync());
+            // Unsubscribe from events
+            RuleBlockService.RuleTriggered -= OnRuleTriggered;
+            RuleBlockService.RuleAcknowledged -= OnRuleAcknowledged;
+
+            // Stop countdown timer
+            StopCountdownTimer();
+
+            // Stop rule monitoring service
+            if (_isInitialized)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await RuleMonitorService.StopAsync();
+                        Logger.LogInformation("Rule monitoring service stopped");
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError(ex, "Error stopping rule monitoring service");
+                    }
+                });
+            }
+
+            Logger.LogInformation("MainLayout disposed");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error disposing MainLayout");
+        }
     }
 }

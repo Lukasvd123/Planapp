@@ -5,25 +5,245 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>Planapp</title>
     <base href="/" />
-    <link rel="stylesheet" href="css/bootstrap/bootstrap.min.css" />
-    <link rel="stylesheet" href="css/app.css" />
-    <link rel="stylesheet" href="Planapp.styles.css" />
-    <link rel="icon" href="data:,">
+    <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet" />
+    <link href="css/app.css" rel="stylesheet" />
+    <link href="Planapp.styles.css" rel="stylesheet" />
+    <link rel="icon" type="image/png" href="favicon.png" />
 </head>
 
 <body>
 
-    <div class="status-bar-safe-area"></div>
-
-    <div id="app">Loading...</div>
+    <div id="app">
+        <div class="loading-splash">
+            <div class="loading-container">
+                <div class="loading-spinner"></div>
+                <h3>Loading Planapp...</h3>
+                <p>Setting up your planning assistant</p>
+            </div>
+        </div>
+    </div>
 
     <div id="blazor-error-ui">
-        An unhandled error has occurred.
-        <a href="" class="reload">Reload</a>
-        <a class="dismiss">🗙</a>
+        <div class="error-container">
+            <h4>An error occurred</h4>
+            <p>Something went wrong while loading the application.</p>
+            <a href="" class="reload">Reload</a>
+            <a class="dismiss">🗙</a>
+        </div>
     </div>
 
     <script src="_framework/blazor.webview.js" autostart="false"></script>
+    <script src="js/mobile-menu.js"></script>
+
+    <script>
+        // Enhanced Blazor startup with better error handling
+        Blazor.start({
+            loadBootResource: function (type, name, defaultUri, integrity) {
+                // Custom resource loading logic can go here
+                return defaultUri;
+            }
+        }).then(() => {
+            console.log('Blazor started successfully');
+
+            // Hide loading splash
+            const splash = document.querySelector('.loading-splash');
+            if (splash) {
+                splash.style.opacity = '0';
+                setTimeout(() => splash.remove(), 300);
+            }
+
+            // Initialize mobile menu after Blazor loads
+            if (window.mobileMenu) {
+                window.mobileMenu.init();
+            }
+        }).catch(error => {
+            console.error('Failed to start Blazor:', error);
+
+            // Show error message
+            const splash = document.querySelector('.loading-splash');
+            if (splash) {
+                splash.innerHTML = `
+                        <div class="loading-container error">
+                            <div class="error-icon">❌</div>
+                            <h3>Failed to Load</h3>
+                            <p>There was an error starting the application.</p>
+                            <button onclick="location.reload()" class="reload-btn">Retry</button>
+                        </div>
+                    `;
+            }
+        });
+
+        // Enhanced error UI functionality
+        document.addEventListener('DOMContentLoaded', function () {
+            const errorUI = document.getElementById('blazor-error-ui');
+
+            if (errorUI) {
+                errorUI.querySelector('.dismiss').addEventListener('click', function () {
+                    errorUI.style.display = 'none';
+                });
+
+                errorUI.querySelector('.reload').addEventListener('click', function () {
+                    location.reload();
+                });
+            }
+        });
+    </script>
+
+    <style>
+        /* Loading splash styles */
+        .loading-splash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            color: white;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-container {
+            text-align: center;
+            max-width: 300px;
+            padding: 2rem;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-container h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .loading-container p {
+            margin: 0;
+            opacity: 0.8;
+            font-size: 1rem;
+        }
+
+        .loading-container.error {
+            color: #ff6b6b;
+        }
+
+        .error-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .reload-btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 1rem;
+            transition: transform 0.2s ease;
+        }
+
+            .reload-btn:hover {
+                transform: translateY(-2px);
+            }
+
+        /* Enhanced error UI styles */
+        #blazor-error-ui {
+            background: lightyellow;
+            bottom: 0;
+            box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+            display: none;
+            left: 0;
+            padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+            position: fixed;
+            width: 100%;
+            z-index: 1000;
+        }
+
+            #blazor-error-ui .error-container {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+
+            #blazor-error-ui h4 {
+                margin: 0;
+                color: #d63384;
+                font-size: 1rem;
+                font-weight: 600;
+            }
+
+            #blazor-error-ui p {
+                margin: 0;
+                color: #6f4e37;
+                font-size: 0.9rem;
+            }
+
+            #blazor-error-ui .dismiss {
+                cursor: pointer;
+                position: absolute;
+                right: 0.75rem;
+                top: 0.5rem;
+                color: #d63384;
+                font-weight: bold;
+                text-decoration: none;
+            }
+
+            #blazor-error-ui .reload {
+                color: #0066cc;
+                text-decoration: none;
+                font-weight: 500;
+            }
+
+                #blazor-error-ui .reload:hover {
+                    text-decoration: underline;
+                }
+
+        /* Mobile responsiveness */
+        @media (max-width: 640px) {
+            .loading-container {
+                padding: 1rem;
+                max-width: 250px;
+            }
+
+                .loading-container h3 {
+                    font-size: 1.25rem;
+                }
+
+            #blazor-error-ui {
+                padding: 0.5rem 1rem;
+            }
+
+                #blazor-error-ui .error-container {
+                    flex-direction: column;
+                    align-items: flex-start;
+                }
+        }
+    </style>
 
 </body>
 

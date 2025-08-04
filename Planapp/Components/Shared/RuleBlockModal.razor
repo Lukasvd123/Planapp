@@ -13,17 +13,30 @@
             <div class="block-content">
                 <h3 class="rule-name">@BlockedRule.Name</h3>
                 <p class="block-message">
-                    You've reached your time limit for the selected apps.
+                    You've reached your daily time limit for the selected apps. The app has been closed to help you maintain healthy usage habits.
                 </p>
 
                 <div class="usage-summary">
                     <div class="usage-detail">
-                        <span class="usage-label">Time Limit:</span>
+                        <span class="usage-label">Daily Limit:</span>
                         <span class="usage-value">@FormatTime(BlockedRule.ThresholdInMilliseconds)</span>
                     </div>
                     <div class="usage-detail">
-                        <span class="usage-label">Apps:</span>
+                        <span class="usage-label">Monitored Apps:</span>
                         <span class="usage-value">@string.Join(", ", BlockedRule.SelectedAppNames.Take(3))@(BlockedRule.SelectedAppNames.Count > 3 ? "..." : "")</span>
+                    </div>
+                    <div class="usage-detail">
+                        <span class="usage-label">Action:</span>
+                        <span class="usage-value">
+                            @if (BlockedRule.ActionType == "OpenApp")
+                            {
+                                <span>Open @BlockedRule.TargetAppName</span>
+                            }
+                            else
+                            {
+                                <span>Return to home screen</span>
+                            }
+                        </span>
                     </div>
                 </div>
 
@@ -59,16 +72,23 @@
 
                 @if (BlockedRule.ActionType == "OpenApp" && !string.IsNullOrEmpty(BlockedRule.TargetAppName))
                 {
-                    <button class="btn-block secondary" @onclick="OpenTargetApp">
+                    <button class="btn-block secondary" @onclick="OpenTargetApp" disabled="@ShowCountdown">
                         <span class="btn-icon">🚀</span>
                         Open @BlockedRule.TargetAppName
+                    </button>
+                }
+                else
+                {
+                    <button class="btn-block secondary" @onclick="Acknowledge" disabled="@ShowCountdown">
+                        <span class="btn-icon">🏠</span>
+                        Go to Home Screen
                     </button>
                 }
             </div>
 
             <div class="block-footer">
                 <p class="footer-text">
-                    This limit helps you maintain healthy app usage habits.
+                    This rule helps you maintain healthy app usage habits. You can modify or disable rules in the Rules section.
                 </p>
             </div>
         </div>
@@ -84,7 +104,12 @@
 
     private bool ShowCountdown => CountdownSeconds > 0;
     private string CountdownText => $"{CountdownSeconds}s";
-    private double ProgressPercentage => CountdownSeconds > 0 ? ((30.0 - CountdownSeconds) / 30.0) * 100 : 100;
+    private double ProgressPercentage => CountdownSeconds > 0 ? ((GetInitialCountdown() - CountdownSeconds) / (double)GetInitialCountdown()) * 100 : 100;
+
+    private int GetInitialCountdown()
+    {
+        return BlockedRule?.ActionType == "LockInApp" ? 30 : 15;
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -107,45 +132,107 @@
         while (CountdownSeconds > 0 && IsVisible)
         {
             await Task.Delay(1000);
-            CountdownSeconds--;
-            StateHasChanged();
+            if (CountdownSeconds > 0)
+            {
+                CountdownSeconds--;
+                StateHasChanged();
+            }
         }
     }
 
     private async Task PreventBackNavigation()
     {
-        await JSRuntime.InvokeVoidAsync("eval", @"
-            // Prevent back button
-            history.pushState(null, null, location.href);
-            window.addEventListener('popstate', function(event) {
-                if (document.querySelector('.rule-block-overlay')) {
-                    history.pushState(null, null, location.href);
-                }
-            });
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                // Prevent back button
+                if (typeof window.ruleBlockHistoryHandler === 'undefined') {
+                    window.ruleBlockHistoryHandler = function(event) {
+                        if (document.querySelector('.rule-block-overlay')) {
+                            history.pushState(null, null, location.href);
+                            event.preventDefault();
+                            return false;
+                        }
+                    };
 
-            // Prevent escape key and other shortcuts
-            document.addEventListener('keydown', function(e) {
-                if (document.querySelector('.rule-block-overlay')) {
-                    if (e.key === 'Escape' || e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        return false;
-                    }
+                    history.pushState(null, null, location.href);
+                    window.addEventListener('popstate', window.ruleBlockHistoryHandler);
                 }
-            });
-        ");
+
+                // Prevent keyboard shortcuts
+                if (typeof window.ruleBlockKeyHandler === 'undefined') {
+                    window.ruleBlockKeyHandler = function(e) {
+                        if (document.querySelector('.rule-block-overlay')) {
+                            if (e.key === 'Escape' || e.key === 'F5' ||
+                                (e.ctrlKey && (e.key === 'r' || e.key === 'R')) ||
+                                (e.ctrlKey && e.shiftKey && (e.key === 'i' || e.key === 'I')) ||
+                                e.key === 'F12') {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                return false;
+                            }
+                        }
+                    };
+
+                    document.addEventListener('keydown', window.ruleBlockKeyHandler, true);
+                }
+            ");
+        }
+        catch (Exception)
+        {
+            // JavaScript execution failed, but this isn't critical
+        }
     }
 
     private async Task Acknowledge()
     {
-        await OnAcknowledge.InvokeAsync();
+        try
+        {
+            await CleanupNavigation();
+            await OnAcknowledge.InvokeAsync();
+        }
+        catch (Exception)
+        {
+            // Handle gracefully
+        }
     }
 
     private async Task OpenTargetApp()
     {
-        if (BlockedRule?.TargetPackage != null)
+        try
         {
-            await OnOpenApp.InvokeAsync(BlockedRule.TargetPackage);
+            if (BlockedRule?.TargetPackage != null)
+            {
+                await CleanupNavigation();
+                await OnOpenApp.InvokeAsync(BlockedRule.TargetPackage);
+            }
+        }
+        catch (Exception)
+        {
+            // Handle gracefully
+        }
+    }
+
+    private async Task CleanupNavigation()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                // Clean up event handlers
+                if (typeof window.ruleBlockHistoryHandler !== 'undefined') {
+                    window.removeEventListener('popstate', window.ruleBlockHistoryHandler);
+                    delete window.ruleBlockHistoryHandler;
+                }
+
+                if (typeof window.ruleBlockKeyHandler !== 'undefined') {
+                    document.removeEventListener('keydown', window.ruleBlockKeyHandler, true);
+                    delete window.ruleBlockKeyHandler;
+                }
+            ");
+        }
+        catch (Exception)
+        {
+            // JavaScript cleanup failed, but this isn't critical
         }
     }
 
@@ -156,6 +243,7 @@
 
         if (time.Hours > 0) parts.Add($"{time.Hours}h");
         if (time.Minutes > 0) parts.Add($"{time.Minutes}m");
+        if (parts.Count == 0 && time.Seconds > 0) parts.Add($"{time.Seconds}s");
 
         return parts.Count > 0 ? string.Join(" ", parts) : "0m";
     }

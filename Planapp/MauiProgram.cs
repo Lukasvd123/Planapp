@@ -15,6 +15,7 @@ namespace Planapp
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 });
 
+            // Register platform-specific services
 #if ANDROID
             builder.Services.AddSingleton<IUsageStatsService, Platforms.Android.UsageStatsServiceImpl>();
             builder.Services.AddSingleton<IRuleService, Platforms.Android.AndroidRuleService>();
@@ -25,18 +26,25 @@ namespace Planapp
             builder.Services.AddSingleton<IAppLaunchMonitor, Services.DefaultAppLaunchMonitor>();
 #endif
 
-            // Add rule blocking service
+            // Add core services
             builder.Services.AddSingleton<IRuleBlockService, RuleBlockService>();
-
-            // Add rule monitor service (manual start)
             builder.Services.AddSingleton<RuleMonitorService>();
 
+            // Add Blazor WebView
             builder.Services.AddMauiBlazorWebView();
 
 #if DEBUG
             builder.Services.AddBlazorWebViewDeveloperTools();
             builder.Logging.AddDebug();
+            builder.Logging.SetMinimumLevel(LogLevel.Debug);
+#else
+            builder.Logging.SetMinimumLevel(LogLevel.Information);
 #endif
+
+            // Configure logging levels for specific services
+            builder.Logging.AddFilter("Planapp.Services.RuleMonitorService", LogLevel.Information);
+            builder.Logging.AddFilter("Planapp.Platforms.Android.AndroidAppLaunchMonitor", LogLevel.Information);
+            builder.Logging.AddFilter("Planapp.Services.RuleBlockService", LogLevel.Information);
 
             return builder.Build();
         }

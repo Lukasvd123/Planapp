@@ -3,40 +3,38 @@
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">Planapp</a>
+        <button class="navbar-toggler" type="button" @onclick="ToggleNavMenu" aria-controls="navigation" aria-expanded="@navMenuExpanded" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
     </div>
 </div>
 
-<input type="checkbox" id="navToggle" class="navbar-toggler" />
-<label for="navToggle" class="navbar-toggler-label">
-    <span class="navbar-toggler-icon"></span>
-</label>
-
-<div class="nav-scrollable" @onclick="CloseNav">
+<div class="nav-scrollable @NavMenuCssClass" @onclick="CloseNavMenu">
     <nav class="flex-column">
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All" @onclick="CloseNav">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All" @onclick="CloseNavMenu">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter" @onclick="CloseNav">
+            <NavLink class="nav-link" href="counter" @onclick="CloseNavMenu">
                 <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather" @onclick="CloseNav">
+            <NavLink class="nav-link" href="weather" @onclick="CloseNavMenu">
                 <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
             </NavLink>
         </div>
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="rules" @onclick="CloseNav">
+            <NavLink class="nav-link" href="rules" @onclick="CloseNavMenu">
                 <span class="bi bi-rules-nav-menu" aria-hidden="true"></span> Rules
             </NavLink>
         </div>
         @if (DeviceInfo.Platform == DevicePlatform.Android)
         {
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="android-usage" @onclick="CloseNav">
+                <NavLink class="nav-link" href="android-usage" @onclick="CloseNavMenu">
                     <span class="bi bi-phone-nav-menu" aria-hidden="true"></span> App Usage
                 </NavLink>
             </div>
@@ -53,12 +51,12 @@
         @if (isDebugBuild)
         {
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="rule-test" @onclick="CloseNav">
+                <NavLink class="nav-link" href="rule-test" @onclick="CloseNavMenu">
                     <span class="bi bi-test-nav-menu" aria-hidden="true"></span> Test Rules
                 </NavLink>
             </div>
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="launch-test" @onclick="CloseNav">
+                <NavLink class="nav-link" href="launch-test" @onclick="CloseNavMenu">
                     <span class="bi bi-launch-test-nav-menu" aria-hidden="true"></span> Launch Test
                 </NavLink>
             </div>
@@ -67,62 +65,17 @@
 </div>
 
 @code {
-    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+    private bool navMenuExpanded = false;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    private string? NavMenuCssClass => navMenuExpanded ? "show" : null;
+
+    private void ToggleNavMenu()
     {
-        if (firstRender)
-        {
-            await JSRuntime.InvokeAsync<object>("eval", @"
-                document.addEventListener('DOMContentLoaded', function() {
-                    const navToggle = document.getElementById('navToggle');
-                    const navScrollable = document.querySelector('.nav-scrollable');
-                    const navLabel = document.querySelector('.navbar-toggler-label');
-
-                    // Close menu when clicking outside (backdrop)
-                    document.addEventListener('click', function(e) {
-                        if (navToggle && navToggle.checked) {
-                            // Check if click is outside menu and toggle button
-                            if (!navScrollable.contains(e.target) &&
-                                !navLabel.contains(e.target) &&
-                                e.target !== navToggle) {
-                                navToggle.checked = false;
-                            }
-                        }
-                    });
-
-                    // Close menu on escape key
-                    document.addEventListener('keydown', function(e) {
-                        if (e.key === 'Escape' && navToggle && navToggle.checked) {
-                            navToggle.checked = false;
-                        }
-                    });
-
-                    // Prevent nav-scrollable clicks from bubbling up
-                    if (navScrollable) {
-                        navScrollable.addEventListener('click', function(e) {
-                            // Only stop propagation for nav links, allow other clicks to close menu
-                            if (e.target.closest('.nav-link')) {
-                                // Let the nav link click through, menu will close via CloseNav()
-                                return;
-                            }
-                            // For other clicks in the menu area, close the menu
-                            if (navToggle) {
-                                navToggle.checked = false;
-                            }
-                        });
-                    }
-                });
-            ");
-        }
+        navMenuExpanded = !navMenuExpanded;
     }
 
-    private async Task CloseNav()
+    private void CloseNavMenu()
     {
-        // Close navigation when a link is clicked
-        await JSRuntime.InvokeAsync<object>("eval", @"
-            const navToggle = document.getElementById('navToggle');
-            if (navToggle) navToggle.checked = false;
-        ");
+        navMenuExpanded = false;
     }
 }
