@@ -10,119 +10,127 @@
 
 @if (CurrentRule == null)
 {
-        <div class="loading-card">
-            <div class="loading-spinner"></div>
-            <h3>Loading...</h3>
-        </div>
+    <div class="loading-card">
+        <div class="loading-spinner"></div>
+        <h3>Loading...</h3>
+    </div>
 }
 else
 {
-        <div class="rule-form">
-            <div class="form-section">
-                <label class="form-label">Rule Name</label>
-                <input type="text" class="form-input" @bind="CurrentRule.Name" placeholder="Enter a name for this rule" />
-            </div>
+    <div class="rule-form">
+        <div class="form-section">
+            <label class="form-label">Rule Name</label>
+            <input type="text" class="form-input" @bind="CurrentRule.Name" placeholder="Enter a name for this rule" />
+        </div>
 
-            <div class="form-section">
-                <label class="form-label">Selected Apps (@CurrentRule.SelectedPackages.Count selected)</label>
-                <div class="app-selection-preview">
+        <div class="form-section">
+            <label class="form-label">Selected Apps (@CurrentRule.SelectedPackages.Count selected)</label>
+            <div class="app-selection-preview">
                 @if (CurrentRule.SelectedAppNames.Count > 0)
                 {
-                            <div class="selected-apps">
+                    <div class="selected-apps">
                         @foreach (var appName in CurrentRule.SelectedAppNames.Take(5))
                         {
-                                        <span class="app-chip">@appName</span>
+                            <span class="app-chip">@appName</span>
                         }
                         @if (CurrentRule.SelectedAppNames.Count > 5)
                         {
-                                        <span class="app-chip more">+@(CurrentRule.SelectedAppNames.Count - 5) more</span>
+                            <span class="app-chip more">+@(CurrentRule.SelectedAppNames.Count - 5) more</span>
                         }
-                            </div>
+                    </div>
                 }
                 else
                 {
-                            <p class="no-apps-selected">No apps selected</p>
+                    <p class="no-apps-selected">No apps selected</p>
                 }
-                    <button type="button" class="btn btn-secondary" @onclick="OpenAppSelection">
-                        <span class="btn-icon">📱</span>
-                        Select Apps
-                    </button>
+                <button type="button" class="btn btn-secondary" @onclick="OpenAppSelection" disabled="@string.IsNullOrWhiteSpace(CurrentRule.Name)">
+                    <span class="btn-icon">📱</span>
+                    Select Apps
+                </button>
+                @if (string.IsNullOrWhiteSpace(CurrentRule.Name))
+                {
+                    <p class="helper-text">Please enter a rule name first</p>
+                }
+            </div>
+        </div>
+
+        <div class="form-section">
+            <label class="form-label">Time Limit</label>
+            <div class="time-inputs">
+                <div class="time-input-group">
+                    <input type="number" class="form-input-small" @bind="CurrentRule.ThresholdHours" min="0" max="23" />
+                    <span class="time-label">hours</span>
+                </div>
+                <div class="time-input-group">
+                    <input type="number" class="form-input-small" @bind="CurrentRule.ThresholdMinutes" min="0" max="59" />
+                    <span class="time-label">minutes</span>
                 </div>
             </div>
+        </div>
 
-            <div class="form-section">
-                <label class="form-label">Time Limit</label>
-                <div class="time-inputs">
-                    <div class="time-input-group">
-                        <input type="number" class="form-input-small" @bind="CurrentRule.ThresholdHours" min="0" max="23" />
-                        <span class="time-label">hours</span>
+        <div class="form-section">
+            <label class="form-label">Action when limit is reached</label>
+            <div class="action-selection">
+                <div class="radio-option @(CurrentRule.ActionType == "LockInApp" ? "selected" : "")" @onclick="@(() => SetActionType("LockInApp"))">
+                    <input type="radio" name="actionType" value="LockInApp" checked="@(CurrentRule.ActionType == "LockInApp")" />
+                    <div class="radio-content">
+                        <span class="radio-icon">🔒</span>
+                        <span class="radio-text">Lock in current app</span>
                     </div>
-                    <div class="time-input-group">
-                        <input type="number" class="form-input-small" @bind="CurrentRule.ThresholdMinutes" min="0" max="59" />
-                        <span class="time-label">minutes</span>
+                </div>
+                <div class="radio-option @(CurrentRule.ActionType == "OpenApp" ? "selected" : "")" @onclick="@(() => SetActionType("OpenApp"))">
+                    <input type="radio" name="actionType" value="OpenApp" checked="@(CurrentRule.ActionType == "OpenApp")" />
+                    <div class="radio-content">
+                        <span class="radio-icon">🚀</span>
+                        <span class="radio-text">Open specific app</span>
                     </div>
                 </div>
             </div>
-
-            <div class="form-section">
-                <label class="form-label">Action when limit is reached</label>
-                <div class="action-selection">
-                    <div class="radio-option @(CurrentRule.ActionType == "LockInApp" ? "selected" : "")" @onclick="@(() => SetActionType("LockInApp"))">
-                        <input type="radio" name="actionType" value="LockInApp" checked="@(CurrentRule.ActionType == "LockInApp")" />
-                        <div class="radio-content">
-                            <span class="radio-icon">🔒</span>
-                            <span class="radio-text">Lock in current app</span>
-                        </div>
-                    </div>
-                    <div class="radio-option @(CurrentRule.ActionType == "OpenApp" ? "selected" : "")" @onclick="@(() => SetActionType("OpenApp"))">
-                        <input type="radio" name="actionType" value="OpenApp" checked="@(CurrentRule.ActionType == "OpenApp")" />
-                        <div class="radio-content">
-                            <span class="radio-icon">🚀</span>
-                            <span class="radio-text">Open specific app</span>
-                        </div>
-                    </div>
-                </div>
 
             @if (CurrentRule.ActionType == "OpenApp")
             {
-                        <div class="target-app-selection">
-                            <label class="form-label">Target app to open</label>
+                <div class="target-app-selection">
+                    <label class="form-label">Target app to open</label>
                     @if (!string.IsNullOrEmpty(CurrentRule.TargetAppName))
                     {
-                                    <div class="selected-target-app">
-                                        <span class="app-chip">@CurrentRule.TargetAppName</span>
-                                    </div>
+                        <div class="selected-target-app">
+                            <span class="app-chip">@CurrentRule.TargetAppName</span>
+                        </div>
                     }
                     else
                     {
-                                    <p class="no-target-app">No target app selected</p>
+                        <p class="no-target-app">No target app selected</p>
                     }
-                            <button type="button" class="btn btn-secondary" @onclick="OpenTargetAppSelection">
-                                <span class="btn-icon">🎯</span>
-                                Select Target App
-                            </button>
-                        </div>
-            }
-            </div>
-
-            <div class="form-section">
-                <div class="toggle-container" @onclick="ToggleEnabled">
-                    <input type="checkbox" @bind="CurrentRule.IsEnabled" />
-                    <span class="toggle-slider"></span>
-                    <span class="toggle-label">Enable this rule</span>
+                    <button type="button" class="btn btn-secondary" @onclick="OpenTargetAppSelection" disabled="@string.IsNullOrWhiteSpace(CurrentRule.Name)">
+                        <span class="btn-icon">🎯</span>
+                        Select Target App
+                    </button>
+                    @if (string.IsNullOrWhiteSpace(CurrentRule.Name))
+                    {
+                        <p class="helper-text">Please enter a rule name first</p>
+                    }
                 </div>
-            </div>
+            }
+        </div>
 
-            <div class="form-actions">
-                <button type="button" class="btn btn-secondary" @onclick="Cancel">
-                    Cancel
-                </button>
-                <button type="button" class="btn btn-primary" @onclick="SaveRule" disabled="@(!IsFormValid)">
-                    <span class="btn-icon">💾</span>
-                @(IsNewRule ? "Create Rule" : "Update Rule")
-                </button>
+        <div class="form-section">
+            <div class="toggle-container" @onclick="ToggleEnabled">
+                <input type="checkbox" @bind="CurrentRule.IsEnabled" />
+                <span class="toggle-slider"></span>
+                <span class="toggle-label">Enable this rule</span>
             </div>
         </div>
+
+        <div class="form-actions">
+            <button type="button" class="btn btn-secondary" @onclick="Cancel">
+                Cancel
+            </button>
+            <button type="button" class="btn btn-primary" @onclick="SaveRule" disabled="@(!IsFormValid)">
+                <span class="btn-icon">💾</span>
+                @(IsNewRule ? "Create Rule" : "Update Rule")
+            </button>
+        </div>
+    </div>
 }
 
 @code {
@@ -172,17 +180,22 @@ else
         }
     }
 
-    private void OpenAppSelection()
+    private async Task OpenAppSelection()
     {
-        if (CurrentRule == null) return;
+        if (CurrentRule == null || string.IsNullOrWhiteSpace(CurrentRule.Name)) return;
 
-        // Store current rule in session or navigation state
+        // Save the rule first (even if incomplete) so it exists when AppSelection tries to load it
+        await RuleService.SaveRuleAsync(CurrentRule);
+
         Navigation.NavigateTo($"/rules/select-apps/{CurrentRule.Id}");
     }
 
-    private void OpenTargetAppSelection()
+    private async Task OpenTargetAppSelection()
     {
-        if (CurrentRule == null) return;
+        if (CurrentRule == null || string.IsNullOrWhiteSpace(CurrentRule.Name)) return;
+
+        // Save the rule first (even if incomplete) so it exists when AppSelection tries to load it
+        await RuleService.SaveRuleAsync(CurrentRule);
 
         Navigation.NavigateTo($"/rules/select-target/{CurrentRule.Id}");
     }

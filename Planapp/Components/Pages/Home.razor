@@ -4,19 +4,32 @@
 
 <p>Welcome to your planning application!</p>
 
-<div class="alert alert-info" role="alert">
-    <h4 class="alert-heading">Getting Started</h4>
-    <p>This is your main dashboard. Use the navigation menu to explore different features:</p>
-    <ul>
-        <li><strong>Counter</strong> - A simple counter example</li>
-        <li><strong>Weather</strong> - Weather forecast display</li>
-        <li><strong>Rules</strong> - Create app usage rules and time limits</li>
-        @if (DeviceInfo.Platform == DevicePlatform.Android)
-        {
-            <li><strong>App Usage</strong> - View your Android app usage statistics</li>
-        }
-    </ul>
-</div>
+@if (DeviceInfo.Platform == DevicePlatform.Android)
+{
+    <div class="alert alert-info" role="alert">
+        <h4 class="alert-heading">Getting Started</h4>
+        <p>This is your main dashboard. Use the navigation menu to explore different features:</p>
+        <ul>
+            <li><strong>Rules</strong> - Create app usage rules and time limits to help manage your screen time</li>
+            <li><strong>App Usage</strong> - View your Android app usage statistics and track your daily screen time</li>
+        </ul>
+        <hr>
+        <p class="mb-0">
+            <strong>Note:</strong> To use these features, you'll need to grant usage access permissions in your device settings.
+            The app will guide you through this process when you first visit the App Usage page.
+        </p>
+    </div>
+}
+else
+{
+    <div class="alert alert-warning" role="alert">
+        <h4 class="alert-heading">Platform Notice</h4>
+        <p>This app is designed specifically for Android devices to help manage app usage and screen time.</p>
+        <p class="mb-0">
+            The main features (Rules and App Usage tracking) are only available on Android devices due to platform-specific requirements for accessing app usage data.
+        </p>
+    </div>
+}
 
 @code {
 

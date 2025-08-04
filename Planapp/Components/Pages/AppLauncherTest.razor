@@ -1,0 +1,241 @@
+﻿@page "/app-launcher-test"
+@inject Planapp.Services.IRuleService RuleService
+@inject Planapp.Services.IRuleBlockService RuleBlockService
+@using Planapp.Models
+
+<div class="page-header">
+    <h1>🚀 App Launcher Test</h1>
+    <p class="page-subtitle">Test app launching functionality directly</p>
+</div>
+
+<div class="test-section">
+    <h3>Quick Launch Common Apps</h3>
+    <div class="quick-apps">
+        @foreach (var app in CommonApps)
+        {
+            <button class="btn-launch" @onclick="() => TestLaunch(app.Key, app.Value)" disabled="@IsLaunching">
+                <span class="app-name">@app.Value</span>
+                <span class="package-name">@app.Key</span>
+            </button>
+        }
+    </div>
+</div>
+
+@if (Apps != null && Apps.Count > 0)
+{
+    <div class="test-section">
+        <h3>Available Apps on Device</h3>
+        <div class="search-container">
+            <input type="text" class="search-input" placeholder="Search apps..." @bind="SearchQuery" @oninput="OnSearchChanged" />
+        </div>
+
+        <div class="apps-list">
+            @foreach (var app in FilteredApps.Take(20))
+            {
+                <div class="app-item">
+                    <div class="app-info">
+                        @if (app.HasIcon)
+                        {
+                            <img src="data:image/png;base64,@app.IconBase64" class="app-icon" alt="@app.AppName icon" />
+                        }
+                        else
+                        {
+                            <div class="app-icon-fallback">@GetAppInitial(app.AppName)</div>
+                        }
+                        <div class="app-details">
+                            <span class="app-name">@app.AppName</span>
+                            <span class="package-name">@app.PackageName</span>
+                        </div>
+                    </div>
+                    <button class="btn-test-launch" @onclick="() => TestLaunch(app.PackageName, app.AppName)" disabled="@IsLaunching">
+                        🚀 Launch
+                    </button>
+                </div>
+            }
+        </div>
+
+        @if (FilteredApps.Count > 20)
+        {
+            <p class="more-apps">Showing first 20 apps. Use search to find specific apps.</p>
+        }
+    </div>
+}
+
+<div class="test-section">
+    <h3>Manual Package Test</h3>
+    <div class="manual-test">
+        <input type="text" class="manual-input" @bind="ManualPackageName" placeholder="Enter package name (e.g., com.android.chrome)" />
+        <button class="btn-manual-launch" @onclick="() => TestLaunch(ManualPackageName, ManualPackageName)" disabled="@(IsLaunching || string.IsNullOrWhiteSpace(ManualPackageName))">
+            🚀 Test Launch
+        </button>
+    </div>
+</div>
+
+@if (TestResults.Count > 0)
+{
+    <div class="test-section">
+        <h3>Test Results</h3>
+        <div class="results-list">
+            @foreach (var result in TestResults.OrderByDescending(r => r.Time))
+            {
+                <div class="result-item @(result.Success ? "success" : "failed")">
+                    <div class="result-header">
+                        <span class="result-status">@(result.Success ? "✅" : "❌")</span>
+                        <span class="result-app">@result.AppName</span>
+                        <span class="result-time">@result.Time.ToString("HH:mm:ss")</span>
+                    </div>
+                    <div class="result-details">
+                        <span class="result-package">@result.PackageName</span>
+                        @if (!string.IsNullOrEmpty(result.ErrorMessage))
+                        {
+                            <span class="result-error">@result.ErrorMessage</span>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+        <button class="btn-clear-results" @onclick="ClearResults">Clear Results</button>
+    </div>
+}
+
+@if (IsLaunching)
+{
+    <div class="launching-overlay">
+        <div class="launching-message">
+            <div class="launching-spinner"></div>
+            <h3>Launching App...</h3>
+            <p>@CurrentLaunchApp</p>
+        </div>
+    </div>
+}
+
+@code {
+    private List<AppInfo>? Apps;
+    private List<AppInfo> FilteredApps = new();
+    private string SearchQuery = "";
+    private string ManualPackageName = "";
+    private bool IsLaunching = false;
+    private string CurrentLaunchApp = "";
+    private List<TestResult> TestResults = new();
+
+    private readonly Dictionary<string, string> CommonApps = new()
+    {
+        { "com.android.chrome", "Chrome" },
+        { "com.google.android.apps.messaging", "Messages" },
+        { "com.android.settings", "Settings" },
+        { "com.google.android.dialer", "Phone" },
+        { "com.android.contacts", "Contacts" },
+        { "com.google.android.gm", "Gmail" },
+        { "com.android.calculator2", "Calculator" },
+        { "com.android.camera2", "Camera" },
+        { "com.spotify.music", "Spotify" },
+        { "com.whatsapp", "WhatsApp" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadApps();
+    }
+
+    private async Task LoadApps()
+    {
+        try
+        {
+            Apps = await RuleService.GetAllAppsAsync();
+            FilteredApps = Apps?.ToList() ?? new List<AppInfo>();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error loading apps: {ex}");
+        }
+    }
+
+    private void OnSearchChanged(ChangeEventArgs e)
+    {
+        SearchQuery = e.Value?.ToString() ?? "";
+        FilterApps();
+    }
+
+    private void FilterApps()
+    {
+        if (Apps == null) return;
+
+        if (string.IsNullOrWhiteSpace(SearchQuery))
+        {
+            FilteredApps = Apps.ToList();
+        }
+        else
+        {
+            var query = SearchQuery.ToLower();
+            FilteredApps = Apps.Where(app =>
+                app.AppName.ToLower().Contains(query) ||
+                app.PackageName.ToLower().Contains(query)
+            ).ToList();
+        }
+        StateHasChanged();
+    }
+
+    private async Task TestLaunch(string packageName, string appName)
+    {
+        if (IsLaunching || string.IsNullOrWhiteSpace(packageName)) return;
+
+        IsLaunching = true;
+        CurrentLaunchApp = appName;
+        StateHasChanged();
+
+        try
+        {
+            await RuleBlockService.OpenTargetApp(packageName);
+
+            // Wait a bit to see if launch was successful
+            await Task.Delay(1000);
+
+            TestResults.Add(new TestResult
+                {
+                    PackageName = packageName,
+                    AppName = appName,
+                    Success = true,
+                    Time = DateTime.Now
+                });
+        }
+        catch (Exception ex)
+        {
+            TestResults.Add(new TestResult
+                {
+                    PackageName = packageName,
+                    AppName = appName,
+                    Success = false,
+                    ErrorMessage = ex.Message,
+                    Time = DateTime.Now
+                });
+        }
+        finally
+        {
+            IsLaunching = false;
+            CurrentLaunchApp = "";
+            StateHasChanged();
+        }
+    }
+
+    private void ClearResults()
+    {
+        TestResults.Clear();
+        StateHasChanged();
+    }
+
+    private string GetAppInitial(string appName)
+    {
+        if (string.IsNullOrEmpty(appName)) return "?";
+        return appName[0].ToString().ToUpper();
+    }
+
+    private class TestResult
+    {
+        public string PackageName { get; set; } = "";
+        public string AppName { get; set; } = "";
+        public bool Success { get; set; }
+        public string ErrorMessage { get; set; } = "";
+        public DateTime Time { get; set; }
+    }
+}

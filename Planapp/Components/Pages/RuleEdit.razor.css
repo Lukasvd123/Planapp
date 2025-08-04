@@ -87,6 +87,14 @@
         box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
     }
 
+/* Helper Text */
+.helper-text {
+    margin: 0.5rem 0 0 0;
+    color: #999;
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
 /* App Selection Preview */
 .app-selection-preview {
     border: 2px dashed #e1e5e9;

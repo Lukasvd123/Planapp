@@ -36,7 +36,24 @@
     }
 </div>
 
-@if (Apps == null)
+@if (IsLoading)
+{
+    <div class="loading-card">
+        <div class="loading-spinner"></div>
+        <h3>Loading...</h3>
+        <p>@LoadingMessage</p>
+    </div>
+}
+else if (HasError)
+{
+    <div class="error-card">
+        <div class="error-icon">❌</div>
+        <h3>Error Loading</h3>
+        <p>@ErrorMessage</p>
+        <button class="btn btn-secondary" @onclick="RetryLoad">Retry</button>
+    </div>
+}
+else if (Apps == null)
 {
     <div class="loading-card">
         <div class="loading-spinner"></div>
@@ -111,7 +128,7 @@ else
     <button class="btn btn-secondary" @onclick="Cancel">
         Cancel
     </button>
-    <button class="btn btn-primary" @onclick="SaveSelection" disabled="@(!IsSelectionValid)">
+    <button class="btn btn-primary" @onclick="SaveSelection" disabled="@(!IsSelectionValid || IsLoading)">
         <span class="btn-icon">✅</span>
         @(IsTargetSelection ? "Select Target" : $"Select {SelectedApps.Count} Apps")
     </button>
@@ -126,33 +143,74 @@ else
     private string SelectedTargetApp = "";
     private string SearchQuery = "";
     private AppRule? CurrentRule;
+    private bool IsLoading = true;
+    private bool HasError = false;
+    private string LoadingMessage = "Loading rule...";
+    private string ErrorMessage = "";
 
     private bool IsTargetSelection => Navigation.Uri.Contains("/select-target/");
     private bool IsSelectionValid => IsTargetSelection ? !string.IsNullOrEmpty(SelectedTargetApp) : SelectedApps.Count > 0;
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadCurrentRule();
-        await LoadApps();
-        InitializeSelection();
-        FilterApps();
+        try
+        {
+            await LoadCurrentRule();
+            if (CurrentRule != null)
+            {
+                LoadingMessage = "Loading apps...";
+                await LoadApps();
+                InitializeSelection();
+                FilterApps();
+            }
+        }
+        catch (Exception ex)
+        {
+            HasError = true;
+            ErrorMessage = "Failed to load data. Please try again.";
+            System.Diagnostics.Debug.WriteLine($"Error in AppSelection: {ex}");
+        }
+        finally
+        {
+            IsLoading = false;
+            StateHasChanged();
+        }
     }
 
     private async Task LoadCurrentRule()
     {
-        var rules = await RuleService.GetRulesAsync();
-        CurrentRule = rules.FirstOrDefault(r => r.Id == RuleId);
-
-        if (CurrentRule == null)
+        try
         {
-            Navigation.NavigateTo("/rules");
+            var rules = await RuleService.GetRulesAsync();
+            CurrentRule = rules.FirstOrDefault(r => r.Id == RuleId);
+
+            if (CurrentRule == null)
+            {
+                HasError = true;
+                ErrorMessage = "Rule not found. Please make sure to save the rule with a name first.";
+            }
+        }
+        catch (Exception ex)
+        {
+            HasError = true;
+            ErrorMessage = "Failed to load rule data.";
+            System.Diagnostics.Debug.WriteLine($"Error loading rule: {ex}");
         }
     }
 
     private async Task LoadApps()
     {
-        Apps = await RuleService.GetAllAppsAsync();
-        FilteredApps = Apps?.ToList() ?? new List<AppInfo>();
+        try
+        {
+            Apps = await RuleService.GetAllAppsAsync();
+            FilteredApps = Apps?.ToList() ?? new List<AppInfo>();
+        }
+        catch (Exception ex)
+        {
+            HasError = true;
+            ErrorMessage = "Failed to load apps from your device.";
+            System.Diagnostics.Debug.WriteLine($"Error loading apps: {ex}");
+        }
     }
 
     private void InitializeSelection()
@@ -165,7 +223,7 @@ else
         }
         else
         {
-            SelectedApps = new HashSet<string>(CurrentRule.SelectedPackages);
+            SelectedApps = new HashSet<string>(CurrentRule.SelectedPackages ?? new List<string>());
         }
     }
 
@@ -233,29 +291,49 @@ else
         FilterApps();
     }
 
+    private async Task RetryLoad()
+    {
+        HasError = false;
+        IsLoading = true;
+        ErrorMessage = "";
+        StateHasChanged();
+
+        await OnInitializedAsync();
+    }
+
     private async Task SaveSelection()
     {
-        if (CurrentRule == null) return;
+        if (CurrentRule == null || IsLoading) return;
 
-        if (IsTargetSelection)
+        try
         {
-            if (!string.IsNullOrEmpty(SelectedTargetApp))
+            if (IsTargetSelection)
             {
-                CurrentRule.TargetPackage = SelectedTargetApp;
-                var targetApp = Apps?.FirstOrDefault(a => a.PackageName == SelectedTargetApp);
-                CurrentRule.TargetAppName = targetApp?.AppName ?? SelectedTargetApp;
+                if (!string.IsNullOrEmpty(SelectedTargetApp))
+                {
+                    CurrentRule.TargetPackage = SelectedTargetApp;
+                    var targetApp = Apps?.FirstOrDefault(a => a.PackageName == SelectedTargetApp);
+                    CurrentRule.TargetAppName = targetApp?.AppName ?? SelectedTargetApp;
+                }
             }
-        }
-        else
-        {
-            CurrentRule.SelectedPackages = SelectedApps.ToList();
-            CurrentRule.SelectedAppNames = Apps?.Where(a => SelectedApps.Contains(a.PackageName))
-                                                .Select(a => a.AppName)
-                                                .ToList() ?? new List<string>();
-        }
+            else
+            {
+                CurrentRule.SelectedPackages = SelectedApps.ToList();
+                CurrentRule.SelectedAppNames = Apps?.Where(a => SelectedApps.Contains(a.PackageName))
+                                                    .Select(a => a.AppName)
+                                                    .ToList() ?? new List<string>();
+            }
 
-        await RuleService.SaveRuleAsync(CurrentRule);
-        Navigation.NavigateTo($"/rules/edit/{RuleId}");
+            await RuleService.SaveRuleAsync(CurrentRule);
+            Navigation.NavigateTo($"/rules/edit/{RuleId}");
+        }
+        catch (Exception ex)
+        {
+            HasError = true;
+            ErrorMessage = "Failed to save selection. Please try again.";
+            System.Diagnostics.Debug.WriteLine($"Error saving selection: {ex}");
+            StateHasChanged();
+        }
     }
 
     private void Cancel()

@@ -1,12 +1,39 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.usagemeter.androidapp" android:versionCode="1">
-	<application android:allowBackup="true" android:icon="@mipmap/appicon" android:supportsRtl="true" android:label="Planner app"></application>
-	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-	<uses-permission android:name="android.permission.INTERNET" />
-	<uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
-	<uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
-	<uses-permission android:name="android.permission.BIND_DEVICE_ADMIN" />
-	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-	<uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-	<uses-permission android:name="android.permission.WAKE_LOCK" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools"
+          package="com.usagemeter.androidapp"
+          android:versionCode="1">
+
+  <application
+    android:allowBackup="true"
+    android:icon="@mipmap/appicon"
+    android:supportsRtl="true"
+    android:label="Planner app">
+  </application>
+
+  <!-- Essential permissions -->
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+  <uses-permission android:name="android.permission.INTERNET" />
+
+  <!-- App usage monitoring -->
+  <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions"/>
+  <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
+  <!-- App launching and management -->
+  <uses-permission android:name="android.permission.BIND_DEVICE_ADMIN" />
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+  <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+  <!-- Additional permissions for app launching -->
+  <uses-permission android:name="android.permission.GET_TASKS" />
+  <uses-permission android:name="android.permission.REORDER_TASKS" />
+
+  <!-- For Android 11+ (API 30+) - Query other packages -->
+  <queries>
+    <intent>
+      <action android:name="android.intent.action.MAIN" />
+      <category android:name="android.intent.category.LAUNCHER" />
+    </intent>
+  </queries>
 </manifest>
