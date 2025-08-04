@@ -46,7 +46,35 @@ namespace Planapp
             builder.Logging.AddFilter("Planapp.Platforms.Android.AndroidAppLaunchMonitor", LogLevel.Information);
             builder.Logging.AddFilter("Planapp.Services.RuleBlockService", LogLevel.Information);
 
-            return builder.Build();
+            var app = builder.Build();
+
+#if ANDROID
+            // Initialize Android-specific features on startup
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(2000); // Wait for app to fully initialize
+                    
+                    // Initialize notification system
+                    Planapp.Platforms.Android.AndroidNotificationHelper.InitializeNotificationChannel();
+                    
+                    // Check and request permissions
+                    var usageService = app.Services.GetService<IUsageStatsService>();
+                    if (usageService != null && !usageService.HasUsagePermission())
+                    {
+                        Microsoft.Extensions.Logging.ILogger? logger = app.Services.GetService<ILogger<App>>();
+                        logger?.LogInformation("Usage stats permission not granted, user will need to grant it manually");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error during Android initialization: {ex.Message}");
+                }
+            });
+#endif
+
+            return app;
         }
     }
 }

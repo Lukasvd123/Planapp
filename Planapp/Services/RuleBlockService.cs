@@ -30,10 +30,18 @@ namespace Planapp.Services
 
             _logger.LogInformation($"Triggering rule block for rule: {rule.Name}");
 
+#if ANDROID
+            // Show debug notification for rule trigger
+            Planapp.Platforms.Android.AndroidNotificationHelper.ShowRuleTriggeredNotification(
+                rule.Name, 
+                string.Join(", ", rule.SelectedAppNames.Take(2))
+            );
+#endif
+
             IsBlocking = true;
             CurrentBlockedRule = rule;
 
-            // Kill the current app first if on Android
+            // Kill the current app first
             await KillCurrentForegroundApp();
 
             // Fire the rule triggered event to show modal
@@ -96,6 +104,9 @@ namespace Planapp.Services
 
                 context.StartActivity(homeIntent);
                 _logger.LogInformation("Successfully sent user to home screen");
+
+                // Give some time for the home screen to load
+                await Task.Delay(1000);
 #else
                 _logger.LogInformation("App killing not supported on this platform");
 #endif
@@ -120,7 +131,28 @@ namespace Planapp.Services
                 if (!success)
                 {
                     _logger.LogWarning($"All launch methods failed for {packageName}, going to home");
+                    
+                    // Show debug notification about failed launch
+                    Planapp.Platforms.Android.AndroidNotificationHelper.ShowAppLaunchNotification(
+                        "Launch Failed", 
+                        $"Could not launch {packageName}"
+                    );
+                    
+                    
+#if ANDROID
                     await GoToHome();
+#endif
+                }
+                else
+                {
+                    _logger.LogInformation($"Successfully launched {packageName}");
+                    
+                    // Show debug notification about successful launch
+                    var appName = Planapp.Platforms.Android.UsageStatsHelper.GetAppName(packageName);
+                    Planapp.Platforms.Android.AndroidNotificationHelper.ShowAppLaunchNotification(
+                        "App Launched", 
+                        $"Successfully opened {appName}"
+                    );
                 }
 #else
                 _logger.LogInformation($"App opening not supported on this platform: {packageName}");
@@ -138,29 +170,39 @@ namespace Planapp.Services
 #if ANDROID
         private async Task<bool> TryMultipleLaunchMethods(string packageName)
         {
-            var methods = new Func<string, Task<bool>>[]
+            var methods = new (string Name, Func<string, Task<bool>> Method)[]
             {
-                TryLaunchWithPackageManager,
-                TryLaunchWithMainIntent,
-                TryLaunchWithCategoryLauncher,
-                TryLaunchWithApplicationInfo
+                ("PackageManager", TryLaunchWithPackageManager),
+                ("MainIntent", TryLaunchWithMainIntent),
+                ("CategoryLauncher", TryLaunchWithCategoryLauncher),
+                ("DirectIntent", TryLaunchWithDirectIntent),
+                ("ApplicationInfo", TryLaunchWithApplicationInfo)
             };
 
-            foreach (var method in methods)
+            foreach (var (name, method) in methods)
             {
                 try
                 {
+                    _logger.LogDebug($"Trying launch method: {name} for {packageName}");
+                    
                     var success = await method(packageName);
                     if (success)
                     {
-                        _logger.LogInformation($"Successfully launched {packageName} using method: {method.Method.Name}");
+                        _logger.LogInformation($"Successfully launched {packageName} using method: {name}");
                         return true;
+                    }
+                    else
+                    {
+                        _logger.LogDebug($"Launch method {name} returned false for {packageName}");
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug($"Launch method {method.Method.Name} failed for {packageName}: {ex.Message}");
+                    _logger.LogDebug($"Launch method {name} failed for {packageName}: {ex.Message}");
                 }
+                
+                // Small delay between attempts
+                await Task.Delay(300);
             }
 
             return false;
@@ -180,7 +222,7 @@ namespace Planapp.Services
                            Android.Content.ActivityFlags.SingleTop);
 
             context.StartActivity(intent);
-            await Task.Delay(500); // Give it time to launch
+            await Task.Delay(1000); // Give it time to launch
             return true;
         }
 
@@ -203,7 +245,7 @@ namespace Planapp.Services
             intent.SetClassName(packageName, activityInfo.Name);
             
             context.StartActivity(intent);
-            await Task.Delay(500);
+            await Task.Delay(1000);
             return true;
         }
 
@@ -217,12 +259,50 @@ namespace Planapp.Services
             intent.AddCategory(Android.Content.Intent.CategoryLauncher);
             intent.SetPackage(packageName);
             intent.AddFlags(Android.Content.ActivityFlags.NewTask |
-                           Android.Content.ActivityFlags.ResetTaskIfNeeded);
+                           Android.Content.ActivityFlags.ResetTaskIfNeeded |
+                           Android.Content.ActivityFlags.ClearTask);
 
             try
             {
                 context.StartActivity(intent);
-                await Task.Delay(500);
+                await Task.Delay(1000);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private async Task<bool> TryLaunchWithDirectIntent(string packageName)
+        {
+            var context = Platform.CurrentActivity ?? global::Android.App.Application.Context;
+            if (context?.PackageManager == null) return false;
+
+            try
+            {
+                // Get all activities for the package
+                var packageInfo = context.PackageManager.GetPackageInfo(
+                    packageName, 
+                    Android.Content.PM.PackageInfoFlags.Activities
+                );
+
+                if (packageInfo?.Activities == null || packageInfo.Activities.Count == 0)
+                    return false;
+
+                // Find a launchable activity
+                var launchableActivity = packageInfo.Activities
+                    .FirstOrDefault(a => !string.IsNullOrEmpty(a.Name));
+
+                if (launchableActivity == null) return false;
+
+                var intent = new Android.Content.Intent();
+                intent.SetComponent(new Android.Content.ComponentName(packageName, launchableActivity.Name));
+                intent.AddFlags(Android.Content.ActivityFlags.NewTask | 
+                               Android.Content.ActivityFlags.ClearTop);
+
+                context.StartActivity(intent);
+                await Task.Delay(1000);
                 return true;
             }
             catch
@@ -243,7 +323,7 @@ namespace Planapp.Services
                 
                 if (intent == null)
                 {
-                    // Try to create intent manually
+                    // Create a basic intent
                     intent = new Android.Content.Intent(Android.Content.Intent.ActionMain);
                     intent.AddCategory(Android.Content.Intent.CategoryLauncher);
                     intent.SetPackage(packageName);
@@ -254,7 +334,7 @@ namespace Planapp.Services
                                Android.Content.ActivityFlags.BroughtToFront);
 
                 context.StartActivity(intent);
-                await Task.Delay(500);
+                await Task.Delay(1000);
                 return true;
             }
             catch

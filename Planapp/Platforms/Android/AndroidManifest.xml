@@ -1,14 +1,15 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           xmlns:tools="http://schemas.android.com/tools"
-          package="com.usagemeter.androidapp"
+          package="com.companyname.planapp"
           android:versionCode="1">
 
   <application
     android:allowBackup="true"
-    android:icon="@mipmap/appicon"
+
     android:supportsRtl="true"
-    android:label="Planner app">
+    android:label="Planapp"
+    android:requestLegacyExternalStorage="true">
   </application>
 
   <!-- Essential permissions -->
@@ -25,15 +26,30 @@
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
   <uses-permission android:name="android.permission.WAKE_LOCK" />
 
-  <!-- Additional permissions for app launching -->
+  <!-- Additional permissions for app launching and notifications -->
   <uses-permission android:name="android.permission.GET_TASKS" />
   <uses-permission android:name="android.permission.REORDER_TASKS" />
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <uses-permission android:name="android.permission.VIBRATE" />
+  
+  <!-- For Android 13+ notification permission -->
+  <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+  
+  <!-- Additional permissions for better app control -->
+  <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
+                   android:maxSdkVersion="29" />
+  <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
+                   android:maxSdkVersion="32" />
 
   <!-- For Android 11+ (API 30+) - Query other packages -->
   <queries>
     <intent>
       <action android:name="android.intent.action.MAIN" />
       <category android:name="android.intent.category.LAUNCHER" />
+    </intent>
+    <!-- Allow querying all packages for better app launching -->
+    <intent>
+      <action android:name="android.intent.action.VIEW" />
     </intent>
   </queries>
 </manifest>
