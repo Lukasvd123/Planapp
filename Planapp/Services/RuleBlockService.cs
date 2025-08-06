@@ -2,6 +2,10 @@
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Planapp.Models;
+using System.Linq;
+#if ANDROID
+using AndroidApp = Android.App.Application;
+#endif
 
 namespace Planapp.Services
 {
@@ -69,6 +73,11 @@ namespace Planapp.Services
             {
                 await OpenSpecificApp(acknowledgedRule.TargetPackage);
             }
+            else
+            {
+                // Just go to home screen
+                await GoToHome();
+            }
 
             RuleAcknowledged?.Invoke(this, EventArgs.Empty);
 
@@ -87,26 +96,10 @@ namespace Planapp.Services
             {
 #if ANDROID
                 _logger.LogInformation("Attempting to go to home screen (kill current app)");
-
-                var context = Platform.CurrentActivity ?? global::Android.App.Application.Context;
-                if (context == null)
-                {
-                    _logger.LogWarning("Android context not available for killing app");
-                    return;
-                }
-
-                // Create home intent to go back to launcher
-                var homeIntent = new Android.Content.Intent(Android.Content.Intent.ActionMain);
-                homeIntent.AddCategory(Android.Content.Intent.CategoryHome);
-                homeIntent.SetFlags(Android.Content.ActivityFlags.NewTask | 
-                                  Android.Content.ActivityFlags.ClearTop |
-                                  Android.Content.ActivityFlags.ResetTaskIfNeeded);
-
-                context.StartActivity(homeIntent);
-                _logger.LogInformation("Successfully sent user to home screen");
-
+                await GoToHome();
+                
                 // Give some time for the home screen to load
-                await Task.Delay(1000);
+                await Task.Delay(1500);
 #else
                 _logger.LogInformation("App killing not supported on this platform");
 #endif
@@ -126,11 +119,11 @@ namespace Planapp.Services
                 _logger.LogInformation($"Opening specific app: {packageName}");
 
 #if ANDROID
-                var success = await TryMultipleLaunchMethods(packageName);
+                var success = await TryLaunchApp(packageName);
                 
                 if (!success)
                 {
-                    _logger.LogWarning($"All launch methods failed for {packageName}, going to home");
+                    _logger.LogWarning($"Failed to launch {packageName}, going to home");
                     
                     // Show debug notification about failed launch
                     Planapp.Platforms.Android.AndroidNotificationHelper.ShowAppLaunchNotification(
@@ -138,10 +131,7 @@ namespace Planapp.Services
                         $"Could not launch {packageName}"
                     );
                     
-                    
-#if ANDROID
                     await GoToHome();
-#endif
                 }
                 else
                 {
@@ -168,177 +158,62 @@ namespace Planapp.Services
         }
 
 #if ANDROID
-        private async Task<bool> TryMultipleLaunchMethods(string packageName)
+        private async Task<bool> TryLaunchApp(string packageName)
         {
-            var methods = new (string Name, Func<string, Task<bool>> Method)[]
-            {
-                ("PackageManager", TryLaunchWithPackageManager),
-                ("MainIntent", TryLaunchWithMainIntent),
-                ("CategoryLauncher", TryLaunchWithCategoryLauncher),
-                ("DirectIntent", TryLaunchWithDirectIntent),
-                ("ApplicationInfo", TryLaunchWithApplicationInfo)
-            };
-
-            foreach (var (name, method) in methods)
-            {
-                try
-                {
-                    _logger.LogDebug($"Trying launch method: {name} for {packageName}");
-                    
-                    var success = await method(packageName);
-                    if (success)
-                    {
-                        _logger.LogInformation($"Successfully launched {packageName} using method: {name}");
-                        return true;
-                    }
-                    else
-                    {
-                        _logger.LogDebug($"Launch method {name} returned false for {packageName}");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug($"Launch method {name} failed for {packageName}: {ex.Message}");
-                }
-                
-                // Small delay between attempts
-                await Task.Delay(300);
-            }
-
-            return false;
-        }
-
-        private async Task<bool> TryLaunchWithPackageManager(string packageName)
-        {
-            var context = Platform.CurrentActivity ?? global::Android.App.Application.Context;
-            if (context?.PackageManager == null) return false;
-
-            var intent = context.PackageManager.GetLaunchIntentForPackage(packageName);
-            if (intent == null) return false;
-
-            intent.AddFlags(Android.Content.ActivityFlags.NewTask | 
-                           Android.Content.ActivityFlags.ClearTop |
-                           Android.Content.ActivityFlags.ResetTaskIfNeeded |
-                           Android.Content.ActivityFlags.SingleTop);
-
-            context.StartActivity(intent);
-            await Task.Delay(1000); // Give it time to launch
-            return true;
-        }
-
-        private async Task<bool> TryLaunchWithMainIntent(string packageName)
-        {
-            var context = Platform.CurrentActivity ?? global::Android.App.Application.Context;
-            if (context?.PackageManager == null) return false;
-
-            var intent = new Android.Content.Intent(Android.Content.Intent.ActionMain);
-            intent.AddCategory(Android.Content.Intent.CategoryLauncher);
-            intent.SetPackage(packageName);
-            intent.AddFlags(Android.Content.ActivityFlags.NewTask | 
-                           Android.Content.ActivityFlags.ClearTop |
-                           Android.Content.ActivityFlags.ResetTaskIfNeeded);
-
-            var activities = context.PackageManager.QueryIntentActivities(intent, 0);
-            if (activities == null || activities.Count == 0) return false;
-
-            var activityInfo = activities[0].ActivityInfo;
-            intent.SetClassName(packageName, activityInfo.Name);
-            
-            context.StartActivity(intent);
-            await Task.Delay(1000);
-            return true;
-        }
-
-        private async Task<bool> TryLaunchWithCategoryLauncher(string packageName)
-        {
-            var context = Platform.CurrentActivity ?? global::Android.App.Application.Context;
-            if (context?.PackageManager == null) return false;
-
-            var intent = new Android.Content.Intent();
-            intent.SetAction(Android.Content.Intent.ActionMain);
-            intent.AddCategory(Android.Content.Intent.CategoryLauncher);
-            intent.SetPackage(packageName);
-            intent.AddFlags(Android.Content.ActivityFlags.NewTask |
-                           Android.Content.ActivityFlags.ResetTaskIfNeeded |
-                           Android.Content.ActivityFlags.ClearTask);
-
             try
             {
-                context.StartActivity(intent);
-                await Task.Delay(1000);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private async Task<bool> TryLaunchWithDirectIntent(string packageName)
-        {
-            var context = Platform.CurrentActivity ?? global::Android.App.Application.Context;
-            if (context?.PackageManager == null) return false;
-
-            try
-            {
-                // Get all activities for the package
-                var packageInfo = context.PackageManager.GetPackageInfo(
-                    packageName, 
-                    Android.Content.PM.PackageInfoFlags.Activities
-                );
-
-                if (packageInfo?.Activities == null || packageInfo.Activities.Count == 0)
+                var context = Platform.CurrentActivity ?? AndroidApp.Context;
+                if (context?.PackageManager == null)
+                {
+                    _logger.LogError("Android context or PackageManager not available");
                     return false;
-
-                // Find a launchable activity
-                var launchableActivity = packageInfo.Activities
-                    .FirstOrDefault(a => !string.IsNullOrEmpty(a.Name));
-
-                if (launchableActivity == null) return false;
-
-                var intent = new Android.Content.Intent();
-                intent.SetComponent(new Android.Content.ComponentName(packageName, launchableActivity.Name));
-                intent.AddFlags(Android.Content.ActivityFlags.NewTask | 
-                               Android.Content.ActivityFlags.ClearTop);
-
-                context.StartActivity(intent);
-                await Task.Delay(1000);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private async Task<bool> TryLaunchWithApplicationInfo(string packageName)
-        {
-            var context = Platform.CurrentActivity ?? global::Android.App.Application.Context;
-            if (context?.PackageManager == null) return false;
-
-            try
-            {
-                var appInfo = context.PackageManager.GetApplicationInfo(packageName, 0);
-                var intent = context.PackageManager.GetLaunchIntentForPackage(packageName);
-                
-                if (intent == null)
-                {
-                    // Create a basic intent
-                    intent = new Android.Content.Intent(Android.Content.Intent.ActionMain);
-                    intent.AddCategory(Android.Content.Intent.CategoryLauncher);
-                    intent.SetPackage(packageName);
                 }
 
-                intent.AddFlags(Android.Content.ActivityFlags.NewTask |
-                               Android.Content.ActivityFlags.ClearTop |
-                               Android.Content.ActivityFlags.BroughtToFront);
+                _logger.LogDebug($"Attempting to launch {packageName}");
 
-                context.StartActivity(intent);
-                await Task.Delay(1000);
-                return true;
+                // Method 1: Use PackageManager.GetLaunchIntentForPackage
+                var intent = context.PackageManager.GetLaunchIntentForPackage(packageName);
+                if (intent != null)
+                {
+                    intent.AddFlags(Android.Content.ActivityFlags.NewTask | 
+                                   Android.Content.ActivityFlags.ClearTop |
+                                   Android.Content.ActivityFlags.ResetTaskIfNeeded);
+
+                    context.StartActivity(intent);
+                    await Task.Delay(1500); // Give it time to launch
+                    
+                    _logger.LogInformation($"Successfully launched {packageName} using launch intent");
+                    return true;
+                }
+
+                _logger.LogDebug($"No launch intent found for {packageName}");
+
+                // Method 2: Try to create intent manually
+                var mainIntent = new Android.Content.Intent(Android.Content.Intent.ActionMain);
+                mainIntent.AddCategory(Android.Content.Intent.CategoryLauncher);
+                mainIntent.SetPackage(packageName);
+                mainIntent.AddFlags(Android.Content.ActivityFlags.NewTask | 
+                                   Android.Content.ActivityFlags.ClearTop);
+
+                var activities = context.PackageManager.QueryIntentActivities(mainIntent, 0);
+                if (activities != null && activities.Count > 0)
+                {
+                    var activityInfo = activities[0].ActivityInfo;
+                    mainIntent.SetClassName(packageName, activityInfo.Name);
+                    
+                    context.StartActivity(mainIntent);
+                    await Task.Delay(1500);
+                    
+                    _logger.LogInformation($"Successfully launched {packageName} using activity intent");
+                    return true;
+                }
+
+                _logger.LogWarning($"No launchable activities found for {packageName}");
+                return false;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogError(ex, $"Error launching app {packageName}: {ex.Message}");
                 return false;
             }
         }
@@ -347,8 +222,12 @@ namespace Planapp.Services
         {
             try
             {
-                var context = Platform.CurrentActivity ?? global::Android.App.Application.Context;
-                if (context == null) return;
+                var context = Platform.CurrentActivity ?? AndroidApp.Context;
+                if (context == null)
+                {
+                    _logger.LogError("Android context not available for home navigation"); 
+                    return;
+                }
 
                 var homeIntent = new Android.Content.Intent(Android.Content.Intent.ActionMain);
                 homeIntent.AddCategory(Android.Content.Intent.CategoryHome);
@@ -357,11 +236,11 @@ namespace Planapp.Services
                                    Android.Content.ActivityFlags.ResetTaskIfNeeded);
 
                 context.StartActivity(homeIntent);
-                _logger.LogInformation("Sent user to home screen as fallback");
+                _logger.LogInformation("Successfully navigated to home screen");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Even home fallback failed");
+                _logger.LogError(ex, "Error navigating to home screen");
             }
 
             await Task.CompletedTask;

@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using AndroidApp = Android.App.Application;
 
 namespace Planapp.Platforms.Android
 {
@@ -32,15 +33,12 @@ namespace Planapp.Platforms.Android
         private const int ICON_SIZE = 48;
         private static readonly ConcurrentDictionary<string, string> IconCache = new();
         private static readonly ConcurrentDictionary<string, string> NameCache = new();
-        // Add this method to the existing UsageStatsHelper class
-
-        // Add this method to your existing UsageStatsHelper class
 
         public static List<DetailedAppUsageInfo> GetDetailedAppUsage(TimeSpan timeSpan)
         {
             try
             {
-                var context = Platform.CurrentActivity?.ApplicationContext ?? global::Android.App.Application.Context;
+                var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 if (context == null) return new List<DetailedAppUsageInfo>();
 
                 var usageStatsManager = context.GetSystemService(Context.UsageStatsService) as UsageStatsManager;
@@ -112,7 +110,7 @@ namespace Planapp.Platforms.Android
         {
             try
             {
-                var context = Platform.CurrentActivity?.ApplicationContext ?? global::Android.App.Application.Context;
+                var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 if (context == null) return new List<AndroidAppUsageInfo>();
 
                 var usageStatsManager = context.GetSystemService(Context.UsageStatsService) as UsageStatsManager;
@@ -143,7 +141,6 @@ namespace Planapp.Platforms.Android
             }
         }
 
-     
         public static string GetAppIcon(string packageName)
         {
             if (string.IsNullOrWhiteSpace(packageName))
@@ -154,8 +151,7 @@ namespace Planapp.Platforms.Android
 
             try
             {
-                var context = Platform.CurrentActivity?.ApplicationContext
-               ?? global::Android.App.Application.Context;
+                var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 var pm = context.PackageManager;
 
                 // -- one happy path --------------------------------------------------
@@ -188,8 +184,6 @@ namespace Planapp.Platforms.Android
             }
         }
 
-     // already defined in the class
-
         private static Bitmap? DrawableToBitmap(Drawable drawable)
         {
             // If it is already a bitmap → scale + return
@@ -207,127 +201,6 @@ namespace Planapp.Platforms.Android
             drawable.Draw(canvas);
             return bmp;
         }
-        private static string GetIconWithFallbacks(PackageManager packageManager, string packageName)
-        {
-            var methods = new Func<Drawable?>[]
-            {
-                // Method 1: Standard application icon
-                () => {
-                    try
-                    {
-                        var appInfo = packageManager.GetApplicationInfo(packageName, 0);
-                        return packageManager.GetApplicationIcon(appInfo);
-                    }
-                    catch { return null; }
-                },
-
-                // Method 2: Direct package manager call
-                () => {
-                    try
-                    {
-                        return packageManager.GetApplicationIcon(packageName);
-                    }
-                    catch { return null; }
-                },
-
-                // Method 3: Launch intent icon
-                () => {
-                    try
-                    {
-                        var intent = packageManager.GetLaunchIntentForPackage(packageName);
-                        if (intent?.Component != null)
-                        {
-                            var activityInfo = packageManager.GetActivityInfo(intent.Component, 0);
-                            return activityInfo.LoadIcon(packageManager);
-                        }
-                    }
-                    catch { }
-                    return null;
-                },
-
-                // Method 4: Query all activities and get first icon
-                () => {
-                    try
-                    {
-                        var intent = new Intent(Intent.ActionMain);
-                        intent.SetPackage(packageName);
-                        var activities = packageManager.QueryIntentActivities(intent, 0);
-                        var firstActivity = activities?.FirstOrDefault();
-                        return firstActivity?.LoadIcon(packageManager);
-                    }
-                    catch { }
-                    return null;
-                },
-
-                // Method 5: Get default activity icon from package info
-                () => {
-                    try
-                    {
-                        var packageInfo = packageManager.GetPackageInfo(packageName, PackageInfoFlags.Activities);
-                        var firstActivity = packageInfo.Activities?.FirstOrDefault();
-                        if (firstActivity != null)
-                        {
-                            return packageManager.GetActivityIcon(new ComponentName(packageName, firstActivity.Name));
-                        }
-                    }
-                    catch { }
-                    return null;
-                }
-            };
-
-            foreach (var method in methods)
-            {
-                try
-                {
-                    var drawable = method();
-                    if (drawable != null)
-                    {
-                        var bitmap = ConvertDrawableToBitmap(drawable);
-                        if (bitmap != null)
-                        {
-                            using var stream = new MemoryStream();
-                            bitmap.Compress(Bitmap.CompressFormat.Png!, 85, stream);
-                            var bytes = stream.ToArray();
-
-                            if (bitmap != (drawable as BitmapDrawable)?.Bitmap)
-                            {
-                                bitmap.Recycle();
-                            }
-
-                            return Convert.ToBase64String(bytes);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Fallback method failed for {packageName}: {ex.Message}");
-                    continue;
-                }
-            }
-
-            return "";
-        }
-
-        private static Bitmap? ConvertDrawableToBitmap(Drawable drawable)
-        {
-            try
-            {
-                if (drawable is BitmapDrawable bitmapDrawable && bitmapDrawable.Bitmap != null)
-                {
-                    return Bitmap.CreateScaledBitmap(bitmapDrawable.Bitmap, ICON_SIZE, ICON_SIZE, true);
-                }
-
-                var bitmap = Bitmap.CreateBitmap(ICON_SIZE, ICON_SIZE, Bitmap.Config.Argb8888!);
-                var canvas = new Canvas(bitmap);
-                drawable.SetBounds(0, 0, ICON_SIZE, ICON_SIZE);
-                drawable.Draw(canvas);
-                return bitmap;
-            }
-            catch
-            {
-                return null;
-            }
-        }
 
         public static string GetAppName(string packageName)
         {
@@ -340,8 +213,7 @@ namespace Planapp.Platforms.Android
 
             try
             {
-                var context = Platform.CurrentActivity?.ApplicationContext
-              ?? global::Android.App.Application.Context;
+                var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 var pm = context.PackageManager;
                 // MetaData flag keeps it compatible with API-24 – 34
                 var appInfo = pm.GetApplicationInfo(packageName,
@@ -363,64 +235,6 @@ namespace Planapp.Platforms.Android
                 return packageName;
             }
         }
-        private static string GetNameWithFallbacks(PackageManager packageManager, string packageName)
-        {
-            var methods = new Func<string?>[]
-            {
-                // Method 1: Application label from app info
-                () => {
-                    try
-                    {
-                        var appInfo = packageManager.GetApplicationInfo(packageName, 0);
-                        return packageManager.GetApplicationLabel(appInfo)?.ToString();
-                    }
-                    catch { return null; }
-                },
-
-                // Method 2: Load label from package info
-                () => {
-                    try
-                    {
-                        var packageInfo = packageManager.GetPackageInfo(packageName, 0);
-                        return packageInfo.ApplicationInfo?.LoadLabel(packageManager)?.ToString();
-                    }
-                    catch { return null; }
-                },
-
-                // Method 3: Activity label from launch intent
-                () => {
-                    try
-                    {
-                        var intent = packageManager.GetLaunchIntentForPackage(packageName);
-                        if (intent?.Component != null)
-                        {
-                            var activityInfo = packageManager.GetActivityInfo(intent.Component, 0);
-                            return activityInfo.LoadLabel(packageManager)?.ToString();
-                        }
-                    }
-                    catch { }
-                    return null;
-                }
-            };
-
-            foreach (var method in methods)
-            {
-                try
-                {
-                    var name = method();
-                    if (!string.IsNullOrEmpty(name))
-                    {
-                        return name;
-                    }
-                }
-                catch
-                {
-                    continue;
-                }
-            }
-
-            return packageName;
-        }
 
         public static void ClearCache()
         {
@@ -432,7 +246,7 @@ namespace Planapp.Platforms.Android
         {
             try
             {
-                var context = Platform.CurrentActivity?.ApplicationContext ?? global::Android.App.Application.Context;
+                var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 if (context == null) return;
 
                 var intent = new Intent(global::Android.Provider.Settings.ActionUsageAccessSettings);
@@ -449,7 +263,7 @@ namespace Planapp.Platforms.Android
         {
             try
             {
-                var context = Platform.CurrentActivity?.ApplicationContext ?? global::Android.App.Application.Context;
+                var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 if (context == null) return false;
 
                 var usageStatsManager = context.GetSystemService(Context.UsageStatsService) as UsageStatsManager;

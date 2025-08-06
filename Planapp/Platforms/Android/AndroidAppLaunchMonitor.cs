@@ -7,6 +7,9 @@ using Android.App.Usage;
 using Android.Content;
 using Microsoft.Extensions.Logging;
 using Planapp.Services;
+using Android.App;
+using Android.OS;
+using AndroidApp = Android.App.Application;
 
 namespace Planapp.Platforms.Android
 {
@@ -18,7 +21,7 @@ namespace Planapp.Platforms.Android
         private DateTime _lastCheckTime = DateTime.Now;
         private string _lastForegroundApp = string.Empty;
         private int _consecutiveErrors = 0;
-        private const int MAX_CONSECUTIVE_ERRORS = 5;
+        private const int MAX_CONSECUTIVE_ERRORS = 10;
 
         public event EventHandler<AppLaunchEventArgs>? AppLaunched;
         public bool IsMonitoring { get; private set; }
@@ -26,9 +29,6 @@ namespace Planapp.Platforms.Android
         public AndroidAppLaunchMonitor(ILogger<AndroidAppLaunchMonitor> logger)
         {
             _logger = logger;
-
-            // Initialize notification channel
-            AndroidNotificationHelper.InitializeNotificationChannel();
         }
 
         public async Task StartMonitoringAsync()
@@ -41,33 +41,47 @@ namespace Planapp.Platforms.Android
 
             _logger.LogInformation("Starting app launch monitoring");
 
-            // Check permissions first
-            if (!HasRequiredPermissions())
+            try
             {
-                _logger.LogError("Missing required permissions for app launch monitoring");
-                AndroidNotificationHelper.ShowAppLaunchNotification("Permission Error", "Missing usage stats permission");
-                return;
-            }
+                // Initialize notification channel first
+                AndroidNotificationHelper.InitializeNotificationChannel();
 
-            // Request notification permission if needed
-            if (!AndroidNotificationHelper.CheckNotificationPermission())
+                // Check permissions thoroughly
+                if (!await CheckAndRequestPermissions())
+                {
+                    _logger.LogError("Cannot start monitoring - missing required permissions");
+                    AndroidNotificationHelper.ShowAppLaunchNotification(
+                        "Permission Error",
+                        "Usage stats permission required - please grant in settings"
+                    );
+                    return;
+                }
+
+                _cancellationTokenSource = new CancellationTokenSource();
+                IsMonitoring = true;
+                _lastCheckTime = DateTime.Now.AddMinutes(-2); // Look back 2 minutes initially
+                _consecutiveErrors = 0;
+
+                // Show debug notification that monitoring started
+                AndroidNotificationHelper.ShowAppLaunchNotification(
+                    "Monitoring Started",
+                    "App launch monitoring is now active"
+                );
+
+                // Start monitoring task
+                _ = Task.Run(() => MonitorAppLaunches(_cancellationTokenSource.Token));
+
+                await Task.CompletedTask;
+            }
+            catch (Exception ex)
             {
-                _logger.LogInformation("Requesting notification permission");
-                AndroidNotificationHelper.RequestNotificationPermission();
+                _logger.LogError(ex, "Error starting app launch monitoring");
+                IsMonitoring = false;
+                AndroidNotificationHelper.ShowAppLaunchNotification(
+                    "Monitoring Error",
+                    $"Failed to start monitoring: {ex.Message}"
+                );
             }
-
-            _cancellationTokenSource = new CancellationTokenSource();
-            IsMonitoring = true;
-            _lastCheckTime = DateTime.Now.AddMinutes(-1);
-            _consecutiveErrors = 0;
-
-            // Show debug notification that monitoring started
-            AndroidNotificationHelper.ShowAppLaunchNotification("Monitoring Started", "App launch monitoring is now active");
-
-            // Start monitoring task
-            _ = Task.Run(() => MonitorAppLaunches(_cancellationTokenSource.Token));
-
-            await Task.CompletedTask;
         }
 
         public async Task StopMonitoringAsync()
@@ -88,38 +102,60 @@ namespace Planapp.Platforms.Android
             _recentLaunches.Clear();
 
             // Show debug notification that monitoring stopped
-            AndroidNotificationHelper.ShowAppLaunchNotification("Monitoring Stopped", "App launch monitoring has been stopped");
+            AndroidNotificationHelper.ShowAppLaunchNotification(
+                "Monitoring Stopped",
+                "App launch monitoring has been stopped"
+            );
 
             await Task.CompletedTask;
         }
 
-        private bool HasRequiredPermissions()
+        private async Task<bool> CheckAndRequestPermissions()
         {
             try
             {
-                var context = Platform.CurrentActivity?.ApplicationContext ?? global::Android.App.Application.Context;
+                var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 if (context == null)
                 {
                     _logger.LogError("Android context not available");
                     return false;
                 }
 
-                var usageStatsManager = context.GetSystemService(Context.UsageStatsService) as UsageStatsManager;
-                if (usageStatsManager == null)
+                // Check usage stats permission
+                var hasUsagePermission = HasUsageStatsPermission();
+                _logger.LogInformation($"Usage stats permission: {hasUsagePermission}");
+
+                if (!hasUsagePermission)
                 {
-                    _logger.LogError("UsageStatsManager not available");
+                    _logger.LogWarning("Usage stats permission not granted");
+
+                    // Try to open usage settings
+                    try
+                    {
+                        var intent = new Intent(global::Android.Provider.Settings.ActionUsageAccessSettings);
+                        intent.AddFlags(ActivityFlags.NewTask);
+                        context.StartActivity(intent);
+                        _logger.LogInformation("Opened usage access settings");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to open usage settings");
+                    }
+
                     return false;
                 }
 
-                // Test if we can actually get usage stats
-                var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
-                var startTime = endTime - (1000L * 60 * 60); // 1 hour ago
+                // Check notification permission for Android 13+
+                if (Build.VERSION.SdkInt >= BuildVersionCodes.Tiramisu)
+                {
+                    if (!AndroidNotificationHelper.CheckNotificationPermission())
+                    {
+                        _logger.LogInformation("Requesting notification permission");
+                        AndroidNotificationHelper.RequestNotificationPermission();
+                    }
+                }
 
-                var stats = usageStatsManager.QueryUsageStats(UsageStatsInterval.Daily, startTime, endTime);
-                var hasPermission = stats != null && stats.Count > 0;
-
-                _logger.LogInformation($"Usage stats permission check: {hasPermission}");
-                return hasPermission;
+                return true;
             }
             catch (Exception ex)
             {
@@ -128,12 +164,59 @@ namespace Planapp.Platforms.Android
             }
         }
 
-        private async Task MonitorAppLaunches(CancellationToken cancellationToken)
+        private bool HasUsageStatsPermission()
         {
             try
             {
-                _logger.LogInformation("App launch monitoring loop started");
+                var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
+                if (context == null) return false;
 
+                // Method 1: Check AppOpsManager
+                var appOps = context.GetSystemService(Context.AppOpsService) as AppOpsManager;
+                if (appOps != null)
+                {
+                    var mode = appOps.CheckOpNoThrow(
+                        AppOpsManager.OpstrGetUsageStats!,
+                        Process.MyUid(),
+                        context.PackageName!);
+
+                    if (mode != AppOpsManagerMode.Allowed)
+                    {
+                        _logger.LogDebug($"AppOps permission check failed: {mode}");
+                        return false;
+                    }
+                }
+
+                // Method 2: Try to actually get usage stats
+                var usageStatsManager = context.GetSystemService(Context.UsageStatsService) as UsageStatsManager;
+                if (usageStatsManager == null)
+                {
+                    _logger.LogError("UsageStatsManager not available");
+                    return false;
+                }
+
+                var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
+                var startTime = endTime - (1000L * 60 * 60 * 2); // 2 hours ago
+
+                var stats = usageStatsManager.QueryUsageStats(UsageStatsInterval.Daily, startTime, endTime);
+                var hasData = stats != null && stats.Count > 0;
+
+                _logger.LogDebug($"Usage stats query returned {stats?.Count ?? 0} entries");
+                return hasData;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking usage stats permission");
+                return false;
+            }
+        }
+
+        private async Task MonitorAppLaunches(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("App launch monitoring loop started");
+
+            try
+            {
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     try
@@ -149,27 +232,38 @@ namespace Planapp.Platforms.Android
                         if (_consecutiveErrors >= MAX_CONSECUTIVE_ERRORS)
                         {
                             _logger.LogError("Too many consecutive errors, stopping monitoring");
-                            AndroidNotificationHelper.ShowAppLaunchNotification("Monitoring Error", "Too many errors, monitoring stopped");
+                            AndroidNotificationHelper.ShowAppLaunchNotification(
+                                "Monitoring Error",
+                                "Too many errors, monitoring stopped - restart app"
+                            );
                             break;
                         }
+
+                        // Longer delay on errors
+                        await Task.Delay(5000, cancellationToken);
+                        continue;
                     }
 
-                    // Check every 1.5 seconds for new app launches
-                    await Task.Delay(1500, cancellationToken);
+                    // Check every 2 seconds for new app launches
+                    await Task.Delay(2000, cancellationToken);
                 }
             }
-            catch (OperationCanceledException)
+            catch (System.OperationCanceledException)
             {
                 _logger.LogInformation("App launch monitoring cancelled");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "App launch monitoring error");
-                AndroidNotificationHelper.ShowAppLaunchNotification("Monitoring Error", $"Monitoring failed: {ex.Message}");
+                AndroidNotificationHelper.ShowAppLaunchNotification(
+                    "Monitoring Error",
+                    $"Monitoring failed: {ex.Message}"
+                );
             }
             finally
             {
                 IsMonitoring = false;
+                _logger.LogInformation("App launch monitoring stopped");
             }
         }
 
@@ -177,7 +271,7 @@ namespace Planapp.Platforms.Android
         {
             try
             {
-                var context = Platform.CurrentActivity?.ApplicationContext ?? global::Android.App.Application.Context;
+                var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 if (context == null)
                 {
                     _logger.LogWarning("Android context not available for app launch monitoring");
@@ -195,10 +289,10 @@ namespace Planapp.Platforms.Android
                 var checkPeriod = currentTime - _lastCheckTime;
 
                 // Only check if enough time has passed
-                if (checkPeriod.TotalSeconds < 1) return;
+                if (checkPeriod.TotalSeconds < 1.5) return;
 
                 var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
-                var startTime = endTime - (long)checkPeriod.TotalMilliseconds - 5000; // Extra 5 seconds buffer
+                var startTime = endTime - (long)checkPeriod.TotalMilliseconds - 10000; // Extra 10 seconds buffer
 
                 // Get usage events to detect app launches
                 var events = usageStatsManager.QueryEvents(startTime, endTime);
@@ -232,10 +326,13 @@ namespace Planapp.Platforms.Android
                 // Process recent app launches
                 var uniqueLaunches = appLaunches
                     .Where(e => !string.IsNullOrEmpty(e.PackageName))
-                    .Where(e => e.PackageName != "com.companyname.planapp") // Don't monitor our own app
+                    .Where(e => e.PackageName != "com.usagemeter.androidapp") // Don't monitor our own app
+                    .Where(e => !e.PackageName.StartsWith("com.android.systemui")) // Skip system UI
+                    .Where(e => !e.PackageName.StartsWith("android")) // Skip android system apps
                     .GroupBy(e => e.PackageName)
                     .Select(g => g.OrderByDescending(e => e.TimeStamp).First())
                     .OrderByDescending(e => e.TimeStamp)
+                    .Take(5) // Only process the 5 most recent launches
                     .ToList();
 
                 _logger.LogDebug($"Found {uniqueLaunches.Count} unique app launches in the last {checkPeriod.TotalSeconds:F1} seconds");
@@ -248,16 +345,16 @@ namespace Planapp.Platforms.Android
                     // Skip if we've already processed this launch
                     if (_recentLaunches.Contains(launchKey)) continue;
 
-                    // Skip if this is the same app that was previously foreground
+                    // Skip if this is the same app that was previously foreground (avoid duplicates)
                     if (packageName == _lastForegroundApp) continue;
 
                     _recentLaunches.Add(launchKey);
                     _lastForegroundApp = packageName;
 
                     // Clean old entries to prevent memory leak
-                    if (_recentLaunches.Count > 100)
+                    if (_recentLaunches.Count > 50)
                     {
-                        var oldEntries = _recentLaunches.Take(50).ToList();
+                        var oldEntries = _recentLaunches.Take(25).ToList();
                         foreach (var old in oldEntries)
                         {
                             _recentLaunches.Remove(old);
@@ -270,7 +367,7 @@ namespace Planapp.Platforms.Android
                     _logger.LogInformation($"App launched: {appName} ({packageName}) at {launchTime:HH:mm:ss}");
 
                     // Show debug notification for app launch
-                    AndroidNotificationHelper.ShowAppLaunchNotification(appName, packageName);
+                    AndroidNotificationHelper.ShowAppLaunchNotification($"App: {appName}", packageName);
 
                     // Fire the event
                     AppLaunched?.Invoke(this, new AppLaunchEventArgs

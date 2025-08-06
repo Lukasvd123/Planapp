@@ -1,15 +1,15 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           xmlns:tools="http://schemas.android.com/tools"
-          package="com.companyname.planapp"
+          package="com.usagemeter.androidapp"
           android:versionCode="1">
 
   <application
     android:allowBackup="true"
-
     android:supportsRtl="true"
-    android:label="Planapp"
-    android:requestLegacyExternalStorage="true">
+    android:label="Usage Meter"
+    android:requestLegacyExternalStorage="true"
+    android:usesCleartextTraffic="true">
   </application>
 
   <!-- Essential permissions -->
@@ -35,6 +35,10 @@
   <!-- For Android 13+ notification permission -->
   <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
   
+  <!-- For better app interaction -->
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+  
   <!-- Additional permissions for better app control -->
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" 
                    android:maxSdkVersion="29" />
@@ -50,6 +54,11 @@
     <!-- Allow querying all packages for better app launching -->
     <intent>
       <action android:name="android.intent.action.VIEW" />
+    </intent>
+    <!-- Query for apps that can handle various intents -->
+    <intent>
+      <action android:name="android.intent.action.SEND" />
+      <data android:mimeType="*/*" />
     </intent>
   </queries>
 </manifest>

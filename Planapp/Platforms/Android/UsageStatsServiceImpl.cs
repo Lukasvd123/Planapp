@@ -7,6 +7,7 @@ using Android.App.Usage;
 using Android.Content;
 using Android.App;
 using Android.OS;
+using AndroidApp = Android.App.Application;
 
 namespace Planapp.Platforms.Android
 {
@@ -18,26 +19,50 @@ namespace Planapp.Platforms.Android
             {
                 try
                 {
+                    if (!HasUsagePermission())
+                    {
+                        System.Diagnostics.Debug.WriteLine("No usage permission, returning empty list");
+                        return new List<AppUsageInfo>();
+                    }
+
                     // Get usage since start of today instead of rolling 24h
                     var today = DateTime.Today;
                     var timeSpan = DateTime.Now - today;
 
-                    var context = Platform.CurrentActivity?.ApplicationContext ?? global::Android.App.Application.Context;
-                    if (context == null) return new List<AppUsageInfo>();
+                    var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
+                    if (context == null)
+                    {
+                        System.Diagnostics.Debug.WriteLine("Context is null");
+                        return new List<AppUsageInfo>();
+                    }
 
                     var usageStatsManager = context.GetSystemService(Context.UsageStatsService) as UsageStatsManager;
-                    if (usageStatsManager == null) return new List<AppUsageInfo>();
+                    if (usageStatsManager == null)
+                    {
+                        System.Diagnostics.Debug.WriteLine("UsageStatsManager is null");
+                        return new List<AppUsageInfo>();
+                    }
 
                     var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
                     var startTime = endTime - (long)timeSpan.TotalMilliseconds;
 
+                    System.Diagnostics.Debug.WriteLine($"Querying usage stats from {DateTimeOffset.FromUnixTimeMilliseconds(startTime)} to {DateTimeOffset.FromUnixTimeMilliseconds(endTime)}");
+
                     var stats = usageStatsManager.QueryUsageStats(UsageStatsInterval.Daily, startTime, endTime);
 
-                    if (stats == null || stats.Count == 0)
+                    if (stats == null)
+                    {
+                        System.Diagnostics.Debug.WriteLine("QueryUsageStats returned null");
                         return new List<AppUsageInfo>();
+                    }
 
-                    return stats
+                    System.Diagnostics.Debug.WriteLine($"QueryUsageStats returned {stats.Count} entries");
+
+                    var result = stats
                         .Where(s => s != null && s.TotalTimeInForeground > 0 && !string.IsNullOrEmpty(s.PackageName))
+                        .Where(s => s.PackageName != "com.usagemeter.androidapp") // Don't include our own app
+                        .GroupBy(s => s.PackageName) // Group by package in case of duplicates
+                        .Select(g => g.OrderByDescending(s => s.TotalTimeInForeground).First()) // Take the one with max usage
                         .Select(s => new AppUsageInfo
                         {
                             PackageName = s.PackageName ?? "Unknown",
@@ -46,9 +71,13 @@ namespace Planapp.Platforms.Android
                         })
                         .OrderByDescending(s => s.TotalTimeInForeground)
                         .ToList();
+
+                    System.Diagnostics.Debug.WriteLine($"Returning {result.Count} filtered apps with usage");
+                    return result;
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    System.Diagnostics.Debug.WriteLine($"Error in GetAppUsageAsync: {ex}");
                     return new List<AppUsageInfo>();
                 }
             });
@@ -58,11 +87,48 @@ namespace Planapp.Platforms.Android
         {
             try
             {
-                UsageStatsHelper.OpenUsageAccessSettings();
+                System.Diagnostics.Debug.WriteLine("Requesting usage access");
+
+                var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
+                if (context == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("Context is null, cannot request usage access");
+                    return;
+                }
+
+                var intent = new Intent(global::Android.Provider.Settings.ActionUsageAccessSettings);
+                intent.AddFlags(ActivityFlags.NewTask);
+
+                // Try to go directly to our app's settings if possible
+                try
+                {
+                    intent.SetData(global::Android.Net.Uri.Parse($"package:{context.PackageName}"));
+                }
+                catch
+                {
+                    // Fallback to general usage access settings
+                    System.Diagnostics.Debug.WriteLine("Cannot navigate directly to app settings, using general settings");
+                }
+
+                context.StartActivity(intent);
+                System.Diagnostics.Debug.WriteLine("Successfully opened usage access settings");
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error opening usage settings: {ex.Message}");
+
+                // Show notification as fallback
+                try
+                {
+                    AndroidNotificationHelper.ShowAppLaunchNotification(
+                        "Manual Setup Required",
+                        "Please go to Settings > Apps > Special access > Usage access and enable this app"
+                    );
+                }
+                catch
+                {
+                    // Last resort fallback
+                }
             }
         }
 
@@ -70,15 +136,15 @@ namespace Planapp.Platforms.Android
         {
             try
             {
-                var context = global::Android.App.Application.Context;
+                var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 if (context == null)
                 {
-                    System.Diagnostics.Debug.WriteLine("Context is null");
+                    System.Diagnostics.Debug.WriteLine("Context is null for permission check");
                     return false;
                 }
 
-                // Check AppOpsManager permission
-                var appOps = (AppOpsManager?)context.GetSystemService(Context.AppOpsService);
+                // Check AppOpsManager permission first
+                var appOps = context.GetSystemService(Context.AppOpsService) as AppOpsManager;
                 if (appOps == null)
                 {
                     System.Diagnostics.Debug.WriteLine("AppOpsManager is null");
@@ -96,8 +162,8 @@ namespace Planapp.Platforms.Android
                     return false;
                 }
 
-                // Verify we can actually get usage stats
-                var usageStatsManager = (UsageStatsManager?)context.GetSystemService(Context.UsageStatsService);
+                // Double-check by trying to get actual usage stats
+                var usageStatsManager = context.GetSystemService(Context.UsageStatsService) as UsageStatsManager;
                 if (usageStatsManager == null)
                 {
                     System.Diagnostics.Debug.WriteLine("UsageStatsManager is null");
@@ -110,7 +176,7 @@ namespace Planapp.Platforms.Android
                 var stats = usageStatsManager.QueryUsageStats(UsageStatsInterval.Daily, startTime, endTime);
 
                 var hasPermission = stats != null && stats.Count > 0;
-                System.Diagnostics.Debug.WriteLine($"Usage permission check result: {hasPermission}");
+                System.Diagnostics.Debug.WriteLine($"Final usage permission check result: {hasPermission} (found {stats?.Count ?? 0} apps)");
 
                 return hasPermission;
             }

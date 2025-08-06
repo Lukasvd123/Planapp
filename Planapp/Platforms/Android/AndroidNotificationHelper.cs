@@ -2,6 +2,7 @@
 using Android.Content;
 using AndroidX.Core.App;
 using Android.OS;
+using AndroidApp = Android.App.Application;
 
 namespace Planapp.Platforms.Android
 {
@@ -15,7 +16,7 @@ namespace Planapp.Platforms.Android
         {
             try
             {
-                var context = Platform.CurrentActivity?.ApplicationContext ?? global::Android.App.Application.Context;
+                var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 if (context == null) return;
 
                 if (Build.VERSION.SdkInt >= BuildVersionCodes.O)
@@ -46,7 +47,7 @@ namespace Planapp.Platforms.Android
         {
             try
             {
-                var context = Platform.CurrentActivity?.ApplicationContext ?? global::Android.App.Application.Context;
+                var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 if (context == null)
                 {
                     System.Diagnostics.Debug.WriteLine("Context is null, cannot show notification");
@@ -96,7 +97,7 @@ namespace Planapp.Platforms.Android
         {
             try
             {
-                var context = Platform.CurrentActivity?.ApplicationContext ?? global::Android.App.Application.Context;
+                var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 if (context == null) return;
 
                 var notificationManager = NotificationManager.FromContext(context);
@@ -126,7 +127,7 @@ namespace Planapp.Platforms.Android
         {
             try
             {
-                var context = Platform.CurrentActivity?.ApplicationContext ?? global::Android.App.Application.Context;
+                var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 if (context == null) return false;
 
                 if (Build.VERSION.SdkInt >= BuildVersionCodes.Tiramisu) // Android 13+
