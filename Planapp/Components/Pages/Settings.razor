@@ -1,0 +1,317 @@
+﻿@page "/settings"
+@inject Planapp.Services.ISettingsService SettingsService
+@inject Planapp.Services.IRuleService RuleService
+@inject IJSRuntime JSRuntime
+@using Planapp.Services
+@using Planapp.Models
+
+<div class="page-header">
+    <h1>⚙️ Settings</h1>
+    <p class="page-subtitle">Customize your app experience</p>
+</div>
+
+@if (appSettings == null)
+{
+    <div class="loading-card">
+        <div class="loading-spinner"></div>
+        <h3>Loading settings...</h3>
+    </div>
+}
+else
+{
+    <div class="settings-container">
+        <!-- General Settings -->
+        <div class="settings-section">
+            <h2 class="section-title">📱 General Settings</h2>
+
+            <div class="setting-item">
+                <label class="setting-label">Master Rule Switch</label>
+                <p class="setting-description">Enable or disable all rules at once</p>
+                <div class="toggle-switch">
+                    <input type="checkbox" id="allRules"
+                           @bind="appSettings.AllRulesEnabled" />
+                    <label for="allRules" class="toggle-label"></label>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <label class="setting-label">Default Home App</label>
+                <p class="setting-description">App to open when returning to home</p>
+                <div class="app-selector">
+                    @if (AvailableApps != null && AvailableApps.Count > 0)
+                    {
+                        <select class="form-select"
+                                @bind="appSettings.HomeAppPackage">
+                            <option value="com.android.launcher3">Default Launcher</option>
+                            @foreach (var app in AvailableApps)
+                            {
+                                <option value="@app.PackageName">@app.AppName</option>
+                            }
+                        </select>
+                    }
+                    else
+                    {
+                        <input type="text"
+                               class="form-input"
+                               @bind="appSettings.HomeAppPackage"
+                               placeholder="com.android.launcher3" />
+                    }
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <label class="setting-label">Blocking Mode</label>
+                <p class="setting-description">How to handle apps when limits are reached</p>
+                <div class="radio-group">
+                    <label class="radio-option">
+                        <input type="radio"
+                               name="blockingMode"
+                               value="Timer"
+                               checked='@(appSettings.BlockingMode == "Timer")'
+                               @onchange='() => OnBlockingModeChanged("Timer")' />
+                        <span>Timer - Wait before continuing</span>
+                    </label>
+                    <label class="radio-option">
+                        <input type="radio"
+                               name="blockingMode"
+                               value="Instant"
+                               checked='@(appSettings.BlockingMode == "Instant")'
+                               @onchange='() => OnBlockingModeChanged("Instant")' />
+                        <span>Instant - Close app immediately</span>
+                    </label>
+                    <label class="radio-option">
+                        <input type="radio"
+                               name="blockingMode"
+                               value="Choice"
+                               checked='@(appSettings.BlockingMode == "Choice")'
+                               @onchange='() => OnBlockingModeChanged("Choice")' />
+                        <span>Choice - Ask what to do</span>
+                    </label>
+                </div>
+            </div>
+
+            @if (appSettings.BlockingMode == "Timer" || appSettings.BlockingMode == "Choice")
+            {
+                <div class="setting-item">
+                    <label class="setting-label">Default Block Duration</label>
+                    <p class="setting-description">How long to wait before allowing app use</p>
+                    <div class="time-inputs">
+                        <div class="time-input-group">
+                            <input type="number"
+                                   class="form-input-small"
+                                   @bind="appSettings.DefaultBlockDurationMinutes"
+                                   min="0" max="59" />
+                            <span class="time-label">minutes</span>
+                        </div>
+                        <div class="time-input-group">
+                            <input type="number"
+                                   class="form-input-small"
+                                   @bind="appSettings.DefaultBlockDurationSeconds"
+                                   min="0" max="59" />
+                            <span class="time-label">seconds</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Theme Settings -->
+        <div class="settings-section">
+            <h2 class="section-title">🎨 Theme & Appearance</h2>
+
+            <div class="setting-item">
+                <label class="setting-label">Primary Color</label>
+                <p class="setting-description">Main theme color for the app</p>
+                <div class="color-picker-container">
+                    <input type="color"
+                           class="color-picker"
+                           @bind="appSettings.ThemeColor" />
+                    <span class="color-value">@appSettings.ThemeColor</span>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <label class="setting-label">Accent Color</label>
+                <p class="setting-description">Secondary color for highlights</p>
+                <div class="color-picker-container">
+                    <input type="color"
+                           class="color-picker"
+                           @bind="appSettings.AccentColor" />
+                    <span class="color-value">@appSettings.AccentColor</span>
+                </div>
+            </div>
+
+            <div class="theme-presets">
+                <label class="setting-label">Quick Themes</label>
+                <div class="preset-buttons">
+                    <button class="preset-btn purple"
+                            @onclick='() => ApplyTheme("#667eea", "#764ba2")'>
+                        Purple
+                    </button>
+                    <button class="preset-btn blue"
+                            @onclick='() => ApplyTheme("#2196F3", "#1976D2")'>
+                        Blue
+                    </button>
+                    <button class="preset-btn green"
+                            @onclick='() => ApplyTheme("#4CAF50", "#388E3C")'>
+                        Green
+                    </button>
+                    <button class="preset-btn orange"
+                            @onclick='() => ApplyTheme("#FF9800", "#F57C00")'>
+                        Orange
+                    </button>
+                    <button class="preset-btn red"
+                            @onclick='() => ApplyTheme("#F44336", "#D32F2F")'>
+                        Red
+                    </button>
+                    <Component />
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Settings -->
+        <div class="settings-section">
+            <h2 class="section-title">🔔 Notifications</h2>
+
+            <div class="setting-item">
+                <label class="setting-label">Show Notifications</label>
+                <p class="setting-description">Display notifications when rules trigger</p>
+                <div class="toggle-switch">
+                    <input type="checkbox"
+                           id="notifications"
+                           @bind="appSettings.ShowNotifications" />
+                    <label for="notifications" class="toggle-label"></label>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <label class="setting-label">Vibration</label>
+                <p class="setting-description">Vibrate when rules trigger</p>
+                <div class="toggle-switch">
+                    <input type="checkbox"
+                           id="vibration"
+                           @bind="appSettings.VibrationEnabled" />
+                    <label for="vibration" class="toggle-label"></label>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <label class="setting-label">Sound</label>
+                <p class="setting-description">Play sound when rules trigger</p>
+                <div class="toggle-switch">
+                    <input type="checkbox"
+                           id="sound"
+                           @bind="appSettings.SoundEnabled" />
+                    <label for="sound" class="toggle-label"></label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="settings-actions">
+            <button class="btn btn-secondary" @onclick="ResetToDefaults">
+                Reset to Defaults
+            </button>
+            <button class="btn btn-primary" @onclick="SaveSettings">
+                <span class="btn-icon">💾</span>
+                Save Settings
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    private AppSettings? appSettings;
+    private List<AppInfo>? AvailableApps;
+    private bool HasChanges = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        appSettings = await SettingsService.GetSettingsAsync();
+        await LoadAvailableApps();
+        await ApplyCurrentTheme();
+    }
+
+    private async Task LoadAvailableApps()
+    {
+        try
+        {
+            AvailableApps = await RuleService.GetAllAppsAsync();
+        }
+        catch
+        {
+            AvailableApps = new List<AppInfo>();
+        }
+    }
+
+    private void OnBlockingModeChanged(string mode)
+    {
+        if (appSettings != null)
+        {
+            appSettings.BlockingMode = mode;
+            HasChanges = true;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ApplyTheme(string primary, string accent)
+    {
+        if (appSettings != null)
+        {
+            appSettings.ThemeColor = primary;
+            appSettings.AccentColor = accent;
+            HasChanges = true;
+            await ApplyCurrentTheme();
+            StateHasChanged();
+        }
+    }
+
+    private async Task ApplyCurrentTheme()
+    {
+        if (appSettings != null)
+        {
+            var css = $@"
+                :root {{
+                    --theme-primary: {appSettings.ThemeColor};
+                    --theme-accent: {appSettings.AccentColor};
+                }}
+                .btn-primary, .loading-card, .no-data-card, .info-card {{
+                    background: linear-gradient(135deg, {appSettings.ThemeColor} 0%, {appSettings.AccentColor} 100%) !important;
+                }}
+                .status-badge.active, .usage-time.under-limit {{
+                    color: {appSettings.ThemeColor} !important;
+                }}
+                .progress-fill, .current-usage {{
+                    border-left-color: {appSettings.ThemeColor} !important;
+                }}
+            ";
+
+            await JSRuntime.InvokeVoidAsync("eval", $@"
+                let style = document.getElementById('dynamic-theme');
+                if (!style) {{
+                    style = document.createElement('style');
+                    style.id = 'dynamic-theme';
+                    document.head.appendChild(style);
+                }}
+                style.textContent = `{css}`;
+            ");
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        if (appSettings != null)
+        {
+            await SettingsService.SaveSettingsAsync(appSettings);
+            HasChanges = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ResetToDefaults()
+    {
+        appSettings = new AppSettings();
+        await SaveSettings();
+        await ApplyCurrentTheme();
+    }
+}

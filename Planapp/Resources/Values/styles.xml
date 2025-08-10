@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<!-- Base application theme. -->
+	<style name="Maui.MainTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+		<!-- Primary brand colors. -->
+		<item name="colorPrimary">@color/maui_material_primary</item>
+		<item name="colorPrimaryVariant">@color/maui_material_primary_variant</item>
+		<item name="colorOnPrimary">@color/maui_material_on_primary</item>
+		<!-- … any other overrides … -->
+	</style>
+
+	<!-- Splash screen uses the same base but you can leave it as-is. -->
+	<style name="Maui.SplashTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+		<item name="android:windowBackground">@drawable/splash_background</item>
+	</style>
+</resources>

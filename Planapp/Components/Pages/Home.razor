@@ -1,36 +1,268 @@
 ﻿@page "/"
+@inject Planapp.Services.IRuleService RuleService
+@inject Planapp.Services.IUsageStatsService UsageStatsService
+@inject Planapp.Services.ISettingsService SettingsService
+@inject NavigationManager Navigation
+@using Planapp.Services
+@using Planapp.Models
 
-<h1>Welcome to Planapp</h1>
-
-<p>Welcome to your planning application!</p>
-
-@if (DeviceInfo.Platform == DevicePlatform.Android)
-{
-    <div class="alert alert-info" role="alert">
-        <h4 class="alert-heading">Getting Started</h4>
-        <p>This is your main dashboard. Use the navigation menu to explore different features:</p>
-        <ul>
-            <li><strong>Rules</strong> - Create app usage rules and time limits to help manage your screen time</li>
-            <li><strong>App Usage</strong> - View your Android app usage statistics and track your daily screen time</li>
-        </ul>
-        <hr>
-        <p class="mb-0">
-            <strong>Note:</strong> To use these features, you'll need to grant usage access permissions in your device settings.
-            The app will guide you through this process when you first visit the App Usage page.
-        </p>
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1 class="dashboard-title">📱 Usage Dashboard</h1>
+        <p class="dashboard-subtitle">@GetGreeting()</p>
     </div>
-}
-else
-{
-    <div class="alert alert-warning" role="alert">
-        <h4 class="alert-heading">Platform Notice</h4>
-        <p>This app is designed specifically for Android devices to help manage app usage and screen time.</p>
-        <p class="mb-0">
-            The main features (Rules and App Usage tracking) are only available on Android devices due to platform-specific requirements for accessing app usage data.
-        </p>
-    </div>
-}
+
+    @if (DeviceInfo.Platform == DevicePlatform.Android)
+    {
+        @if (!HasUsagePermission)
+        {
+            <div class="permission-banner">
+                <div class="banner-icon">⚠️</div>
+                <div class="banner-content">
+                    <h3>Permission Required</h3>
+                    <p>To track your app usage and enforce rules, please grant usage access permission.</p>
+                </div>
+                <button class="btn-grant" @onclick="RequestPermission">Grant Permission</button>
+            </div>
+        }
+
+        <div class="stats-grid">
+            <div class="stat-card primary">
+                <div class="stat-icon">📊</div>
+                <div class="stat-content">
+                    <div class="stat-value">@(TodayUsage != null ? FormatTime(TodayUsage.Value) : "--")</div>
+                    <div class="stat-label">Today's Screen Time</div>
+                </div>
+            </div>
+
+            <div class="stat-card secondary">
+                <div class="stat-icon">📋</div>
+                <div class="stat-content">
+                    <div class="stat-value">@ActiveRulesCount</div>
+                    <div class="stat-label">Active Rules</div>
+                </div>
+            </div>
+
+            <div class="stat-card accent">
+                <div class="stat-icon">📱</div>
+                <div class="stat-content">
+                    <div class="stat-value">@AppsMonitored</div>
+                    <div class="stat-label">Apps Monitored</div>
+                </div>
+            </div>
+
+            <div class="stat-card success">
+                <div class="stat-icon">✅</div>
+                <div class="stat-content">
+                    <div class="stat-value">@(Settings?.AllRulesEnabled == true ? "ON" : "OFF")</div>
+                    <div class="stat-label">Protection Status</div>
+                </div>
+            </div>
+        </div>
+
+        @if (TopApps != null && TopApps.Count > 0)
+        {
+            <div class="section-card">
+                <h2 class="section-title">🏆 Most Used Apps Today</h2>
+                <div class="top-apps-list">
+                    @foreach (var app in TopApps.Take(5))
+                    {
+                        <div class="top-app-item">
+                            <div class="app-rank">#@(TopApps.IndexOf(app) + 1)</div>
+                            <div class="app-info">
+                                <span class="app-name">@app.AppName</span>
+                                <span class="app-usage">@FormatTime(app.TotalTimeInForeground)</span>
+                            </div>
+                            <div class="usage-bar">
+                                <div class="usage-fill" style="width: @GetUsagePercentage(app)%"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        @if (ActiveRules != null && ActiveRules.Count > 0)
+        {
+            <div class="section-card">
+                <h2 class="section-title">🛡️ Active Protection Rules</h2>
+                <div class="rules-summary">
+                    @foreach (var rule in ActiveRules.Take(3))
+                    {
+                        <div class="rule-summary-item">
+                            <div class="rule-icon">⏰</div>
+                            <div class="rule-details">
+                                <h4>@rule.Name</h4>
+                                <p>Limit: @FormatTime(rule.ThresholdInMilliseconds) • @rule.SelectedAppNames.Count apps</p>
+                            </div>
+                            <div class="rule-status @(IsRuleExceeded(rule) ? "exceeded" : "safe")">
+                                @(IsRuleExceeded(rule) ? "Exceeded" : "Within Limit")
+                            </div>
+                        </div>
+                    }
+                </div>
+                @if (ActiveRules.Count > 3)
+                {
+                    <a href="/rules" class="view-all-link">View all @ActiveRules.Count rules →</a>
+                }
+            </div>
+        }
+
+        <div class="quick-actions">
+            <h2 class="section-title">⚡ Quick Actions</h2>
+            <div class="action-buttons">
+                <button class="action-btn"
+                        @onclick='() => Navigation.NavigateTo("/rules/edit/new")'>
+                    <span class="action-icon">➕</span>
+                    <span>Create Rule</span>
+                </button>
+                <button class="action-btn"
+                        @onclick='() => Navigation.NavigateTo("/android-usage")'>
+                    <span class="action-icon">📊</span>
+                    <span>View Usage</span>
+                </button>
+                <button class="action-btn"
+                        @onclick='() => Navigation.NavigateTo("/settings")'>
+                    <span class="action-icon">⚙️</span>
+                    <span>Settings</span>
+                </button>
+                <button class="action-btn" @onclick="RefreshData">
+                    <span class="action-icon">🔄</span>
+                    <span>Refresh</span>
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="platform-notice">
+            <div class="notice-icon">📱</div>
+            <h2>Android Device Required</h2>
+            <p>This app is designed specifically for Android devices to help manage app usage and screen time.</p>
+            <p>The main features (Rules and App Usage tracking) require Android's usage statistics API.</p>
+        </div>
+    }
+</div>
 
 @code {
+    private bool HasUsagePermission = false;
+    private long? TodayUsage;
+    private int ActiveRulesCount = 0;
+    private int AppsMonitored = 0;
+    private List<AppUsageInfo>? TopApps;
+    private List<AppRule>? ActiveRules;
+    private AppSettings? Settings;
+    private Dictionary<string, long> RuleUsageData = new();
 
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardData();
+    }
+
+    private async Task LoadDashboardData()
+    {
+        try
+        {
+            // Load settings
+            Settings = await SettingsService.GetSettingsAsync();
+
+            // Check permission
+            HasUsagePermission = UsageStatsService.HasUsagePermission();
+
+            if (HasUsagePermission)
+            {
+                // Load usage data
+                var apps = await UsageStatsService.GetAppUsageAsync();
+                TopApps = apps.OrderByDescending(a => a.TotalTimeInForeground).ToList();
+                TodayUsage = apps.Sum(a => a.TotalTimeInForeground);
+
+                // Load rules
+                var allRules = await RuleService.GetRulesAsync();
+                ActiveRules = allRules.Where(r => r.IsEnabled && Settings.AllRulesEnabled).ToList();
+                ActiveRulesCount = ActiveRules.Count;
+
+                // Calculate monitored apps
+                var monitoredPackages = new HashSet<string>();
+                foreach (var rule in ActiveRules)
+                {
+                    foreach (var pkg in rule.SelectedPackages)
+                    {
+                        monitoredPackages.Add(pkg);
+                    }
+                }
+                AppsMonitored = monitoredPackages.Count;
+
+                // Load usage data for rules
+                foreach (var rule in ActiveRules)
+                {
+                    if (rule.SelectedPackages.Count > 0)
+                    {
+                        var usage = await RuleService.GetCombinedUsageForAppsAsync(rule.SelectedPackages);
+                        RuleUsageData[rule.Id] = usage;
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error loading dashboard data: {ex}");
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadDashboardData();
+    }
+
+    private void RequestPermission()
+    {
+        UsageStatsService.RequestUsageAccess();
+    }
+
+    private string GetGreeting()
+    {
+        var hour = DateTime.Now.Hour;
+        if (hour < 12) return "Good morning! Let's make today productive.";
+        if (hour < 17) return "Good afternoon! Stay focused on what matters.";
+        if (hour < 21) return "Good evening! Time to wind down.";
+        return "Good night! Consider taking a break from screens.";
+    }
+
+    private string FormatTime(long milliseconds)
+    {
+        if (milliseconds <= 0) return "0m";
+
+        var time = TimeSpan.FromMilliseconds(milliseconds);
+        var parts = new List<string>();
+
+        if (time.TotalDays >= 1)
+        {
+            var days = (int)time.TotalDays;
+            parts.Add($"{days}d");
+            time = time.Subtract(TimeSpan.FromDays(days));
+        }
+
+        if (time.Hours > 0) parts.Add($"{time.Hours}h");
+        if (time.Minutes > 0) parts.Add($"{time.Minutes}m");
+        if (parts.Count == 0 && time.Seconds > 0) parts.Add($"{time.Seconds}s");
+
+        return parts.Count > 0 ? string.Join(" ", parts) : "0m";
+    }
+
+    private double GetUsagePercentage(AppUsageInfo app)
+    {
+        if (TodayUsage == null || TodayUsage == 0) return 0;
+        return (app.TotalTimeInForeground / (double)TodayUsage) * 100;
+    }
+
+    private bool IsRuleExceeded(AppRule rule)
+    {
+        if (RuleUsageData.TryGetValue(rule.Id, out var usage))
+        {
+            return usage >= rule.ThresholdInMilliseconds;
+        }
+        return false;
+    }
 }

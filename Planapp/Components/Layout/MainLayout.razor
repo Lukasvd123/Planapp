@@ -6,6 +6,7 @@
 @using Planapp.Models
 @inject IRuleBlockService RuleBlockService
 @inject RuleMonitorService RuleMonitorService
+@inject ISettingsService SettingsService
 @inject ILogger<MainLayout> Logger
 @implements IDisposable
 
@@ -15,10 +16,6 @@
     </div>
 
     <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
-
         <article class="content px-4">
             @Body
         </article>
@@ -34,9 +31,10 @@
 @code {
     private bool IsRuleBlocked = false;
     private AppRule? BlockedRule = null;
-    private int CountdownSeconds = 30;
+    private int CountdownSeconds = 0;
     private Timer? CountdownTimer;
     private bool _isInitialized = false;
+    private AppSettings? _settings;
 
     protected override async Task OnInitializedAsync()
     {
@@ -44,20 +42,56 @@
         {
             Logger.LogInformation("MainLayout initializing...");
 
+            // Load settings
+            _settings = await SettingsService.GetSettingsAsync();
+
             // Subscribe to rule block events
             RuleBlockService.RuleTriggered += OnRuleTriggered;
             RuleBlockService.RuleAcknowledged += OnRuleAcknowledged;
 
-            // Start the rule monitoring service
+#if ANDROID
+            // Only start monitoring if on Android and settings allow it
+            if (_settings.AllRulesEnabled)
+            {
+                // Start the foreground service for background monitoring
+                Logger.LogInformation("Starting Android foreground service...");
+                var foregroundService = new Planapp.Platforms.Android.AndroidForegroundService();
+                await foregroundService.StartAsync();
+                
+                // Give the service time to start
+                await Task.Delay(2000);
+                
+                Logger.LogInformation("Foreground service started");
+            }
+            else
+            {
+                Logger.LogInformation("Rules are disabled in settings, not starting monitor");
+            }
+#else
+            // For non-Android platforms, start monitoring directly
             Logger.LogInformation("Starting rule monitoring service...");
             await RuleMonitorService.StartAsync();
+#endif
 
             _isInitialized = true;
             Logger.LogInformation("MainLayout initialized successfully");
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error initializing MainLayout");
+            Logger.LogError(ex, "Error initializing MainLayout - will retry");
+            
+            // Retry initialization after delay
+            await Task.Delay(3000);
+            try
+            {
+                await RuleMonitorService.StartAsync();
+                _isInitialized = true;
+                Logger.LogInformation("MainLayout initialization retry successful");
+            }
+            catch (Exception retryEx)
+            {
+                Logger.LogError(retryEx, "Failed to initialize after retry");
+            }
         }
     }
 
@@ -67,16 +101,32 @@
         {
             Logger.LogInformation($"Rule triggered: {e.Rule.Name}");
 
-            InvokeAsync(() =>
+            InvokeAsync(async () =>
             {
                 BlockedRule = e.Rule;
                 IsRuleBlocked = true;
 
-                // Set countdown based on action type
-                CountdownSeconds = e.Rule.ActionType == "LockInApp" ? 30 : 15;
-
-                // Start countdown timer
-                StartCountdownTimer();
+                // Get settings for countdown duration
+                if (_settings != null)
+                {
+                    if (_settings.BlockingMode == "Timer")
+                    {
+                        CountdownSeconds = _settings.DefaultBlockDurationMinutes * 60 + 
+                                         _settings.DefaultBlockDurationSeconds;
+                    }
+                    else if (_settings.BlockingMode == "Choice")
+                    {
+                        CountdownSeconds = 0; // Let user choose
+                    }
+                    else
+                    {
+                        CountdownSeconds = 0; // Instant mode
+                    }
+                }
+                else
+                {
+                    CountdownSeconds = 30; // Default fallback
+                }
 
                 StateHasChanged();
             });
@@ -97,7 +147,7 @@
             {
                 IsRuleBlocked = false;
                 BlockedRule = null;
-                CountdownSeconds = 30;
+                CountdownSeconds = 0;
                 StopCountdownTimer();
 
                 StateHasChanged();
@@ -107,25 +157,6 @@
         {
             Logger.LogError(ex, "Error handling rule acknowledged event");
         }
-    }
-
-    private void StartCountdownTimer()
-    {
-        StopCountdownTimer(); // Stop any existing timer
-
-        CountdownTimer = new Timer(async _ =>
-        {
-            if (CountdownSeconds > 0)
-            {
-                CountdownSeconds--;
-                await InvokeAsync(StateHasChanged);
-            }
-            else
-            {
-                // Countdown finished, auto-acknowledge
-                await OnAcknowledgeRule();
-            }
-        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
     }
 
     private void StopCountdownTimer()
@@ -173,22 +204,8 @@
             // Stop countdown timer
             StopCountdownTimer();
 
-            // Stop rule monitoring service
-            if (_isInitialized)
-            {
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await RuleMonitorService.StopAsync();
-                        Logger.LogInformation("Rule monitoring service stopped");
-                    }
-                    catch (Exception ex)
-                    {
-                        Logger.LogError(ex, "Error stopping rule monitoring service");
-                    }
-                });
-            }
+            // Note: We don't stop the monitoring service here as it should
+            // continue running in the background via the foreground service
 
             Logger.LogInformation("MainLayout disposed");
         }

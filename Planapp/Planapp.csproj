@@ -34,7 +34,7 @@
 
     <ItemGroup>
         <!-- App Icon - FIXED: Uncommented -->
-        <MauiIcon Include="Resources\AppIcon\appicon.png" />
+       <MauiIcon Include="Resources\AppIcon\appicon.svg"  Color="#512BD4" />
 
         <!-- Splash Screen -->
         <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
@@ -49,12 +49,18 @@
         <!-- Raw Assets -->
         <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
     </ItemGroup>
-
+<ItemGroup Condition="$(TargetFramework.Contains('-android'))">
+    <PackageReference Include="Microsoft.Maui.Controls.Material" Version="9.0.14" />
+  </ItemGroup>
     <ItemGroup>
         <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.0" />
         <PackageReference Include="NuGet.Protocol" Version="6.14.0" />
+		
+      
+ 
     </ItemGroup>
+  
 
 </Project>

@@ -10,6 +10,7 @@ namespace Planapp
             var builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
+                .UseMauiMaterial()
                 .ConfigureFonts(fonts =>
                 {
                     fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -17,11 +18,15 @@ namespace Planapp
 
             try
             {
+                // Add settings service first
+                builder.Services.AddSingleton<ISettingsService, SettingsService>();
+
                 // Register platform-specific services
 #if ANDROID
                 builder.Services.AddSingleton<IUsageStatsService, Platforms.Android.UsageStatsServiceImpl>();
                 builder.Services.AddSingleton<IRuleService, Platforms.Android.AndroidRuleService>();
                 builder.Services.AddSingleton<IAppLaunchMonitor, Platforms.Android.AndroidAppLaunchMonitor>();
+                builder.Services.AddSingleton<Platforms.Android.AndroidForegroundService>();
 #else
                 builder.Services.AddSingleton<IUsageStatsService, Services.DefaultUsageStatsService>();
                 builder.Services.AddSingleton<IRuleService, Services.DefaultRuleService>();
@@ -43,7 +48,7 @@ namespace Planapp
                 builder.Logging.SetMinimumLevel(LogLevel.Information);
 #endif
 
-                // Configure logging levels for specific services
+                // Configure logging levels
                 builder.Logging.AddFilter("Planapp.Services.RuleMonitorService", LogLevel.Information);
                 builder.Logging.AddFilter("Planapp.Platforms.Android.AndroidAppLaunchMonitor", LogLevel.Information);
                 builder.Logging.AddFilter("Planapp.Services.RuleBlockService", LogLevel.Information);
@@ -51,57 +56,52 @@ namespace Planapp
                 var app = builder.Build();
 
 #if ANDROID
-                // Initialize Android-specific features on startup with better error handling
+                // Delayed initialization with better error recovery
                 Task.Run(async () =>
                 {
+                    // Wait longer for full initialization
+                    await Task.Delay(5000);
+
                     try
                     {
-                        await Task.Delay(3000); // Wait for app to fully initialize
-                        
                         var logger = app.Services.GetService<ILogger<App>>();
                         logger?.LogInformation("Starting Android initialization...");
-                        
-                        // Initialize notification system
+
+                        // Initialize notification channel
                         Planapp.Platforms.Android.AndroidNotificationHelper.InitializeNotificationChannel();
-                        logger?.LogInformation("Notification channel initialized");
-                        
-                        // Check and log permission status
+
+                        // Check permissions
                         var usageService = app.Services.GetService<IUsageStatsService>();
-                        if (usageService != null)
+                        if (usageService != null && !usageService.HasUsagePermission())
                         {
-                            var hasPermission = usageService.HasUsagePermission();
-                            logger?.LogInformation($"Usage stats permission status: {hasPermission}");
-                            
-                            if (!hasPermission)
-                            {
-                                logger?.LogWarning("Usage stats permission not granted, user will need to grant it manually");
-                                
-                                // Show notification to request permissions
-                                Planapp.Platforms.Android.AndroidNotificationHelper.ShowAppLaunchNotification(
-                                    "Permissions Required", 
-                                    "Please grant usage access permission in settings"
-                                );
-                            }
+                            logger?.LogWarning("Usage stats permission not granted");
                         }
-                        
-                        logger?.LogInformation("Android initialization completed successfully");
+
+                        // Start foreground service for background monitoring
+                        var foregroundService = app.Services.GetService<Platforms.Android.AndroidForegroundService>();
+                        if (foregroundService != null)
+                        {
+                            await foregroundService.StartAsync();
+                            logger?.LogInformation("Foreground service started");
+                        }
+
+                        logger?.LogInformation("Android initialization completed");
                     }
                     catch (Exception ex)
                     {
                         var logger = app.Services.GetService<ILogger<App>>();
-                        logger?.LogError(ex, "Error during Android initialization: {Message}", ex.Message);
-                        
-                        // Show error notification
+                        logger?.LogError(ex, "Error during Android initialization (will retry): {Message}", ex.Message);
+
+                        // Retry after delay
+                        await Task.Delay(3000);
                         try
                         {
-                            Planapp.Platforms.Android.AndroidNotificationHelper.ShowAppLaunchNotification(
-                                "Initialization Error", 
-                                $"App initialization failed: {ex.Message}"
-                            );
+                            Planapp.Platforms.Android.AndroidNotificationHelper.InitializeNotificationChannel();
+                            logger?.LogInformation("Retry successful");
                         }
                         catch
                         {
-                            // Ignore notification errors during error handling
+                            // Ignore retry errors
                         }
                     }
                 });
@@ -111,26 +111,18 @@ namespace Planapp
             }
             catch (Exception ex)
             {
-                // Log the error and create a minimal app
                 System.Diagnostics.Debug.WriteLine($"Error creating MAUI app: {ex}");
 
-                // Try to create a minimal working app
-                try
-                {
-                    builder.Services.AddSingleton<IUsageStatsService, Services.DefaultUsageStatsService>();
-                    builder.Services.AddSingleton<IRuleService, Services.DefaultRuleService>();
-                    builder.Services.AddSingleton<IAppLaunchMonitor, Services.DefaultAppLaunchMonitor>();
-                    builder.Services.AddSingleton<IRuleBlockService, RuleBlockService>();
-                    builder.Services.AddSingleton<RuleMonitorService>();
-                    builder.Services.AddMauiBlazorWebView();
+                // Create minimal app that will work
+                builder.Services.AddSingleton<ISettingsService, SettingsService>();
+                builder.Services.AddSingleton<IUsageStatsService, Services.DefaultUsageStatsService>();
+                builder.Services.AddSingleton<IRuleService, Services.DefaultRuleService>();
+                builder.Services.AddSingleton<IAppLaunchMonitor, Services.DefaultAppLaunchMonitor>();
+                builder.Services.AddSingleton<IRuleBlockService, RuleBlockService>();
+                builder.Services.AddSingleton<RuleMonitorService>();
+                builder.Services.AddMauiBlazorWebView();
 
-                    return builder.Build();
-                }
-                catch (Exception innerEx)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Failed to create minimal app: {innerEx}");
-                    throw;
-                }
+                return builder.Build();
             }
         }
     }

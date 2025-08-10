@@ -1,5 +1,7 @@
 ﻿@using Planapp.Models
+@using Planapp.Services
 @inject IJSRuntime JSRuntime
+@inject ISettingsService SettingsService
 
 @if (IsVisible && BlockedRule != null)
 {
@@ -13,7 +15,19 @@
             <div class="block-content">
                 <h3 class="rule-name">@BlockedRule.Name</h3>
                 <p class="block-message">
-                    You've reached your daily time limit for the selected apps. The app has been closed to help you maintain healthy usage habits.
+                    You've reached your daily time limit for the selected apps.
+                    @if (Settings?.BlockingMode == "Timer")
+                    {
+                        <span>Please wait for the countdown to continue.</span>
+                    }
+                    else if (Settings?.BlockingMode == "Instant")
+                    {
+                        <span>The app has been closed to help you maintain healthy usage habits.</span>
+                    }
+                    else
+                    {
+                        <span>Choose how you'd like to proceed.</span>
+                    }
                 </p>
 
                 <div class="usage-summary">
@@ -25,22 +39,16 @@
                         <span class="usage-label">Monitored Apps:</span>
                         <span class="usage-value">@string.Join(", ", BlockedRule.SelectedAppNames.Take(3))@(BlockedRule.SelectedAppNames.Count > 3 ? "..." : "")</span>
                     </div>
-                    <div class="usage-detail">
-                        <span class="usage-label">Action:</span>
-                        <span class="usage-value">
-                            @if (BlockedRule.ActionType == "OpenApp")
-                            {
-                                <span>Open @BlockedRule.TargetAppName</span>
-                            }
-                            else
-                            {
-                                <span>Return to home screen</span>
-                            }
-                        </span>
-                    </div>
+                    @if (BlockedRule.ActionType == "OpenApp" && !string.IsNullOrEmpty(BlockedRule.TargetAppName))
+                    {
+                        <div class="usage-detail">
+                            <span class="usage-label">Suggested App:</span>
+                            <span class="usage-value">@BlockedRule.TargetAppName</span>
+                        </div>
+                    }
                 </div>
 
-                @if (ShowCountdown)
+                @if (Settings?.BlockingMode == "Timer" || (Settings?.BlockingMode == "Choice" && UserChoseWait))
                 {
                     <div class="countdown-section">
                         <p class="countdown-text">You can continue in:</p>
@@ -50,45 +58,88 @@
                                 <div class="progress-fill" style="width: @ProgressPercentage%"></div>
                             </div>
                         </div>
+                        @if (Settings?.BlockingMode == "Choice" && !UserChoseWait)
+                        {
+                            <button class="btn-skip" @onclick="SkipTimer">Skip Timer</button>
+                        }
                     </div>
                 }
             </div>
 
             <div class="block-actions">
-                @if (ShowCountdown)
+                @if (Settings?.BlockingMode == "Choice" && !UserChoseWait)
                 {
-                    <button class="btn-block disabled" disabled>
-                        <span class="btn-icon">⏳</span>
-                        Wait @CountdownText
-                    </button>
-                }
-                else
-                {
-                    <button class="btn-block primary" @onclick="Acknowledge">
-                        <span class="btn-icon">✓</span>
-                        I Understand
-                    </button>
-                }
+                    <h4>What would you like to do?</h4>
 
-                @if (BlockedRule.ActionType == "OpenApp" && !string.IsNullOrEmpty(BlockedRule.TargetAppName))
-                {
-                    <button class="btn-block secondary" @onclick="OpenTargetApp" disabled="@ShowCountdown">
-                        <span class="btn-icon">🚀</span>
-                        Open @BlockedRule.TargetAppName
+                    <button class="btn-block choice" @onclick="ChooseWait">
+                        <span class="btn-icon">⏳</span>
+                        Wait @(Settings.DefaultBlockDurationMinutes)m @(Settings.DefaultBlockDurationSeconds)s
                     </button>
-                }
-                else
-                {
-                    <button class="btn-block secondary" @onclick="Acknowledge" disabled="@ShowCountdown">
+
+                    <button class="btn-block choice" @onclick="GoHome">
                         <span class="btn-icon">🏠</span>
                         Go to Home Screen
                     </button>
+
+                    @if (BlockedRule.ActionType == "OpenApp" && !string.IsNullOrEmpty(BlockedRule.TargetAppName))
+                    {
+                        <button class="btn-block choice primary" @onclick="OpenTargetApp">
+                            <span class="btn-icon">🚀</span>
+                            Open @BlockedRule.TargetAppName
+                        </button>
+                    }
+
+                    <button class="btn-block choice secondary" @onclick="Acknowledge">
+                        <span class="btn-icon">✓</span>
+                        Dismiss (Not Recommended)
+                    </button>
+                }
+                else if (Settings?.BlockingMode == "Timer" || UserChoseWait)
+                {
+                    @if (CountdownSeconds <= 0)
+                    {
+                        <button class="btn-block primary" @onclick="Acknowledge">
+                            <span class="btn-icon">✓</span>
+                            Continue
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn-block disabled" disabled>
+                            <span class="btn-icon">⏳</span>
+                            Wait @CountdownText
+                        </button>
+                    }
+
+                    @if (BlockedRule.ActionType == "OpenApp" && !string.IsNullOrEmpty(BlockedRule.TargetAppName))
+                    {
+                        <button class="btn-block secondary" @onclick="OpenTargetApp" disabled="@(CountdownSeconds > 0)">
+                            <span class="btn-icon">🚀</span>
+                            Open @BlockedRule.TargetAppName Instead
+                        </button>
+                    }
+                }
+                else
+                {
+                    <button class="btn-block primary" @onclick="GoHome">
+                        <span class="btn-icon">🏠</span>
+                        Go to Home
+                    </button>
+
+                    @if (BlockedRule.ActionType == "OpenApp" && !string.IsNullOrEmpty(BlockedRule.TargetAppName))
+                    {
+                        <button class="btn-block secondary" @onclick="OpenTargetApp">
+                            <span class="btn-icon">🚀</span>
+                            Open @BlockedRule.TargetAppName
+                        </button>
+                    }
                 }
             </div>
 
             <div class="block-footer">
                 <p class="footer-text">
-                    This rule helps you maintain healthy app usage habits. You can modify or disable rules in the Rules section.
+                    💡 Tip: Taking breaks from apps helps maintain healthy digital habits.
+                    You can modify these settings in the Settings menu.
                 </p>
             </div>
         </div>
@@ -100,44 +151,111 @@
     [Parameter] public AppRule? BlockedRule { get; set; }
     [Parameter] public EventCallback OnAcknowledge { get; set; }
     [Parameter] public EventCallback<string> OnOpenApp { get; set; }
-    [Parameter] public int CountdownSeconds { get; set; } = 30;
+    [Parameter] public int CountdownSeconds { get; set; } = 0;
 
-    private bool ShowCountdown => CountdownSeconds > 0;
-    private string CountdownText => $"{CountdownSeconds}s";
-    private double ProgressPercentage => CountdownSeconds > 0 ? ((GetInitialCountdown() - CountdownSeconds) / (double)GetInitialCountdown()) * 100 : 100;
+    private AppSettings? Settings;
+    private bool UserChoseWait = false;
+    private Timer? CountdownTimer;
+    private int InitialCountdown = 0;
 
-    private int GetInitialCountdown()
+    private string CountdownText
     {
-        return BlockedRule?.ActionType == "LockInApp" ? 30 : 15;
+        get
+        {
+            if (CountdownSeconds <= 0) return "0s";
+            var minutes = CountdownSeconds / 60;
+            var seconds = CountdownSeconds % 60;
+            if (minutes > 0)
+                return $"{minutes}m {seconds}s";
+            return $"{seconds}s";
+        }
+    }
+
+    private double ProgressPercentage => InitialCountdown > 0
+        ? ((InitialCountdown - CountdownSeconds) / (double)InitialCountdown) * 100
+        : 100;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Settings = await SettingsService.GetSettingsAsync();
+
+        // Set initial countdown based on settings
+        if (Settings.BlockingMode == "Timer")
+        {
+            InitialCountdown = Settings.DefaultBlockDurationMinutes * 60 + Settings.DefaultBlockDurationSeconds;
+            CountdownSeconds = InitialCountdown;
+        }
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        if (IsVisible && ShowCountdown)
+        if (IsVisible && Settings?.BlockingMode == "Timer" && CountdownSeconds > 0)
         {
-            await StartCountdown();
-        }
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender && IsVisible)
-        {
+            StartCountdownTimer();
             await PreventBackNavigation();
         }
+        else if (IsVisible && Settings?.BlockingMode == "Instant")
+        {
+            // For instant mode, immediately go home
+            await Task.Delay(1000); // Brief delay to show message
+            await GoHome();
+        }
     }
 
-    private async Task StartCountdown()
+    private void ChooseWait()
     {
-        while (CountdownSeconds > 0 && IsVisible)
+        UserChoseWait = true;
+        InitialCountdown = Settings!.DefaultBlockDurationMinutes * 60 + Settings.DefaultBlockDurationSeconds;
+        CountdownSeconds = InitialCountdown;
+        StartCountdownTimer();
+        StateHasChanged();
+    }
+
+    private void StartCountdownTimer()
+    {
+        CountdownTimer?.Dispose();
+
+        CountdownTimer = new Timer(_ =>
         {
-            await Task.Delay(1000);
             if (CountdownSeconds > 0)
             {
                 CountdownSeconds--;
-                StateHasChanged();
+                InvokeAsync(StateHasChanged);
             }
+            else
+            {
+                CountdownTimer?.Dispose();
+                InvokeAsync(StateHasChanged);
+            }
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void SkipTimer()
+    {
+        CountdownSeconds = 0;
+        CountdownTimer?.Dispose();
+        StateHasChanged();
+    }
+
+    private async Task GoHome()
+    {
+        await CleanupNavigation();
+        await OnAcknowledge.InvokeAsync();
+    }
+
+    private async Task OpenTargetApp()
+    {
+        if (BlockedRule?.TargetPackage != null)
+        {
+            await CleanupNavigation();
+            await OnOpenApp.InvokeAsync(BlockedRule.TargetPackage);
         }
+    }
+
+    private async Task Acknowledge()
+    {
+        await CleanupNavigation();
+        await OnAcknowledge.InvokeAsync();
     }
 
     private async Task PreventBackNavigation()
@@ -184,39 +302,12 @@
         }
     }
 
-    private async Task Acknowledge()
-    {
-        try
-        {
-            await CleanupNavigation();
-            await OnAcknowledge.InvokeAsync();
-        }
-        catch (Exception)
-        {
-            // Handle gracefully
-        }
-    }
-
-    private async Task OpenTargetApp()
-    {
-        try
-        {
-            if (BlockedRule?.TargetPackage != null)
-            {
-                await CleanupNavigation();
-                await OnOpenApp.InvokeAsync(BlockedRule.TargetPackage);
-            }
-        }
-        catch (Exception)
-        {
-            // Handle gracefully
-        }
-    }
-
     private async Task CleanupNavigation()
     {
         try
         {
+            CountdownTimer?.Dispose();
+
             await JSRuntime.InvokeVoidAsync("eval", @"
                 // Clean up event handlers
                 if (typeof window.ruleBlockHistoryHandler !== 'undefined') {
@@ -246,5 +337,10 @@
         if (parts.Count == 0 && time.Seconds > 0) parts.Add($"{time.Seconds}s");
 
         return parts.Count > 0 ? string.Join(" ", parts) : "0m";
+    }
+
+    public void Dispose()
+    {
+        CountdownTimer?.Dispose();
     }
 }

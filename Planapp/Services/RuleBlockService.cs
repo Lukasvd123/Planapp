@@ -12,6 +12,7 @@ namespace Planapp.Services
     public class RuleBlockService : IRuleBlockService
     {
         private readonly ILogger<RuleBlockService> _logger;
+        private readonly ISettingsService _settingsService;
 
         public event EventHandler<RuleBlockEventArgs>? RuleTriggered;
         public event EventHandler? RuleAcknowledged;
@@ -19,9 +20,10 @@ namespace Planapp.Services
         public bool IsBlocking { get; private set; }
         public AppRule? CurrentBlockedRule { get; private set; }
 
-        public RuleBlockService(ILogger<RuleBlockService> logger)
+        public RuleBlockService(ILogger<RuleBlockService> logger, ISettingsService settingsService)
         {
             _logger = logger;
+            _settingsService = settingsService;
         }
 
         public async Task TriggerRuleBlock(AppRule rule)
@@ -34,22 +36,63 @@ namespace Planapp.Services
 
             _logger.LogInformation($"Triggering rule block for rule: {rule.Name}");
 
+            var settings = await _settingsService.GetSettingsAsync();
+
 #if ANDROID
-            // Show debug notification for rule trigger
-            Planapp.Platforms.Android.AndroidNotificationHelper.ShowRuleTriggeredNotification(
-                rule.Name, 
-                string.Join(", ", rule.SelectedAppNames.Take(2))
-            );
+            // Show notification if enabled
+            if (settings.ShowNotifications)
+            {
+                Planapp.Platforms.Android.AndroidNotificationHelper.ShowRuleTriggeredNotification(
+                    rule.Name,
+                    string.Join(", ", rule.SelectedAppNames.Take(2))
+                );
+            }
+
+            // Vibrate if enabled
+            if (settings.VibrationEnabled)
+            {
+                try
+                {
+                    var vibrator = Platform.CurrentActivity?.GetSystemService(Android.Content.Context.VibratorService) as Android.OS.Vibrator;
+                    if (vibrator?.HasVibrator == true)
+                    {
+                        vibrator.Vibrate(Android.OS.VibrationEffect.CreateOneShot(500, Android.OS.VibrationEffect.DefaultAmplitude));
+                    }
+                }
+                catch { }
+            }
+
+            // Bring app to foreground to show blocking modal
+            Planapp.Platforms.Android.AndroidForegroundService.ShowBlockingOverlay(rule);
 #endif
 
             IsBlocking = true;
             CurrentBlockedRule = rule;
 
-            // Kill the current app first
-            await KillCurrentForegroundApp();
+            // Handle based on blocking mode
+            switch (settings.BlockingMode)
+            {
+                case "Instant":
+                    // Kill app immediately and go home
+                    await KillCurrentForegroundApp();
+                    await GoToHome(settings.HomeAppPackage);
+                    IsBlocking = false;
+                    CurrentBlockedRule = null;
+                    break;
 
-            // Fire the rule triggered event to show modal
-            RuleTriggered?.Invoke(this, new RuleBlockEventArgs { Rule = rule });
+                case "Timer":
+                    // Show blocking screen with timer
+                    await KillCurrentForegroundApp();
+                    RuleTriggered?.Invoke(this, new RuleBlockEventArgs { Rule = rule });
+                    break;
+
+                case "Choice":
+                default:
+                    // Show modal with options
+                    await KillCurrentForegroundApp();
+                    RuleTriggered?.Invoke(this, new RuleBlockEventArgs { Rule = rule });
+                    break;
+            }
 
             await Task.CompletedTask;
         }
@@ -65,6 +108,8 @@ namespace Planapp.Services
             _logger.LogInformation($"Rule block acknowledged for rule: {CurrentBlockedRule.Name}");
 
             var acknowledgedRule = CurrentBlockedRule;
+            var settings = await _settingsService.GetSettingsAsync();
+
             IsBlocking = false;
             CurrentBlockedRule = null;
 
@@ -75,8 +120,8 @@ namespace Planapp.Services
             }
             else
             {
-                // Just go to home screen
-                await GoToHome();
+                // Go to configured home app
+                await GoToHome(settings.HomeAppPackage);
             }
 
             RuleAcknowledged?.Invoke(this, EventArgs.Empty);
@@ -95,11 +140,15 @@ namespace Planapp.Services
             try
             {
 #if ANDROID
-                _logger.LogInformation("Attempting to go to home screen (kill current app)");
-                await GoToHome();
-                
-                // Give some time for the home screen to load
-                await Task.Delay(1500);
+                _logger.LogInformation("Attempting to minimize current app");
+
+                // Move task to back instead of killing
+                var activity = Platform.CurrentActivity;
+                if (activity != null)
+                {
+                    activity.MoveTaskToBack(true);
+                    await Task.Delay(500);
+                }
 #else
                 _logger.LogInformation("App killing not supported on this platform");
 #endif
@@ -107,6 +156,44 @@ namespace Planapp.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error killing current foreground app");
+            }
+
+            await Task.CompletedTask;
+        }
+
+        private async Task GoToHome(string? homePackage = null)
+        {
+            try
+            {
+#if ANDROID
+                var context = Platform.CurrentActivity ?? AndroidApp.Context;
+                if (context == null)
+                {
+                    _logger.LogError("Android context not available for home navigation");
+                    return;
+                }
+
+                // Try to use configured home app first
+                if (!string.IsNullOrEmpty(homePackage))
+                {
+                    var success = await TryLaunchApp(homePackage);
+                    if (success) return;
+                }
+
+                // Fallback to default home
+                var homeIntent = new Android.Content.Intent(Android.Content.Intent.ActionMain);
+                homeIntent.AddCategory(Android.Content.Intent.CategoryHome);
+                homeIntent.SetFlags(Android.Content.ActivityFlags.NewTask |
+                                   Android.Content.ActivityFlags.ClearTop |
+                                   Android.Content.ActivityFlags.ResetTaskIfNeeded);
+
+                context.StartActivity(homeIntent);
+                _logger.LogInformation("Successfully navigated to home screen");
+#endif
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error navigating to home screen");
             }
 
             await Task.CompletedTask;
@@ -120,29 +207,35 @@ namespace Planapp.Services
 
 #if ANDROID
                 var success = await TryLaunchApp(packageName);
-                
+
                 if (!success)
                 {
                     _logger.LogWarning($"Failed to launch {packageName}, going to home");
-                    
-                    // Show debug notification about failed launch
-                    Planapp.Platforms.Android.AndroidNotificationHelper.ShowAppLaunchNotification(
-                        "Launch Failed", 
-                        $"Could not launch {packageName}"
-                    );
-                    
-                    await GoToHome();
+
+                    var settings = await _settingsService.GetSettingsAsync();
+                    if (settings.ShowNotifications)
+                    {
+                        Planapp.Platforms.Android.AndroidNotificationHelper.ShowAppLaunchNotification(
+                            "Launch Failed",
+                            $"Could not launch {packageName}"
+                        );
+                    }
+
+                    await GoToHome(settings.HomeAppPackage);
                 }
                 else
                 {
                     _logger.LogInformation($"Successfully launched {packageName}");
-                    
-                    // Show debug notification about successful launch
-                    var appName = Planapp.Platforms.Android.UsageStatsHelper.GetAppName(packageName);
-                    Planapp.Platforms.Android.AndroidNotificationHelper.ShowAppLaunchNotification(
-                        "App Launched", 
-                        $"Successfully opened {appName}"
-                    );
+
+                    var settings = await _settingsService.GetSettingsAsync();
+                    if (settings.ShowNotifications)
+                    {
+                        var appName = Planapp.Platforms.Android.UsageStatsHelper.GetAppName(packageName);
+                        Planapp.Platforms.Android.AndroidNotificationHelper.ShowAppLaunchNotification(
+                            "App Launched",
+                            $"Successfully opened {appName}"
+                        );
+                    }
                 }
 #else
                 _logger.LogInformation($"App opening not supported on this platform: {packageName}");
@@ -151,7 +244,8 @@ namespace Planapp.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error opening specific app: {packageName}");
-                await GoToHome();
+                var settings = await _settingsService.GetSettingsAsync();
+                await GoToHome(settings.HomeAppPackage);
             }
 
             await Task.CompletedTask;
@@ -175,13 +269,13 @@ namespace Planapp.Services
                 var intent = context.PackageManager.GetLaunchIntentForPackage(packageName);
                 if (intent != null)
                 {
-                    intent.AddFlags(Android.Content.ActivityFlags.NewTask | 
+                    intent.AddFlags(Android.Content.ActivityFlags.NewTask |
                                    Android.Content.ActivityFlags.ClearTop |
                                    Android.Content.ActivityFlags.ResetTaskIfNeeded);
 
                     context.StartActivity(intent);
                     await Task.Delay(1500); // Give it time to launch
-                    
+
                     _logger.LogInformation($"Successfully launched {packageName} using launch intent");
                     return true;
                 }
@@ -192,7 +286,7 @@ namespace Planapp.Services
                 var mainIntent = new Android.Content.Intent(Android.Content.Intent.ActionMain);
                 mainIntent.AddCategory(Android.Content.Intent.CategoryLauncher);
                 mainIntent.SetPackage(packageName);
-                mainIntent.AddFlags(Android.Content.ActivityFlags.NewTask | 
+                mainIntent.AddFlags(Android.Content.ActivityFlags.NewTask |
                                    Android.Content.ActivityFlags.ClearTop);
 
                 var activities = context.PackageManager.QueryIntentActivities(mainIntent, 0);
@@ -200,10 +294,10 @@ namespace Planapp.Services
                 {
                     var activityInfo = activities[0].ActivityInfo;
                     mainIntent.SetClassName(packageName, activityInfo.Name);
-                    
+
                     context.StartActivity(mainIntent);
                     await Task.Delay(1500);
-                    
+
                     _logger.LogInformation($"Successfully launched {packageName} using activity intent");
                     return true;
                 }
@@ -216,34 +310,6 @@ namespace Planapp.Services
                 _logger.LogError(ex, $"Error launching app {packageName}: {ex.Message}");
                 return false;
             }
-        }
-
-        private async Task GoToHome()
-        {
-            try
-            {
-                var context = Platform.CurrentActivity ?? AndroidApp.Context;
-                if (context == null)
-                {
-                    _logger.LogError("Android context not available for home navigation"); 
-                    return;
-                }
-
-                var homeIntent = new Android.Content.Intent(Android.Content.Intent.ActionMain);
-                homeIntent.AddCategory(Android.Content.Intent.CategoryHome);
-                homeIntent.SetFlags(Android.Content.ActivityFlags.NewTask | 
-                                   Android.Content.ActivityFlags.ClearTop |
-                                   Android.Content.ActivityFlags.ResetTaskIfNeeded);
-
-                context.StartActivity(homeIntent);
-                _logger.LogInformation("Successfully navigated to home screen");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error navigating to home screen");
-            }
-
-            await Task.CompletedTask;
         }
 #endif
     }
