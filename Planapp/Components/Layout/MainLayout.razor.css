@@ -28,6 +28,7 @@
     margin: 0;
     font-size: 1.2rem;
     font-weight: 600;
+    flex: 1;
 }
 
 .navbar-toggler {
@@ -42,6 +43,7 @@
     width: 40px;
     height: 40px;
     transition: all 0.2s ease;
+    order: -1; /* Ensure it appears first */
 }
 
     .navbar-toggler:hover {
@@ -85,7 +87,7 @@
     }
 
         /* Backdrop when menu is open */
-        .sidebar.show::after {
+        .sidebar.show::before {
             content: '';
             position: fixed;
             top: 0;
@@ -94,6 +96,7 @@
             height: 100vh;
             background: rgba(0, 0, 0, 0.5);
             z-index: -1;
+            pointer-events: auto;
         }
 
 /* Desktop styles */
@@ -109,16 +112,20 @@
         box-shadow: none;
     }
 
-        .sidebar::after {
+        .sidebar::before {
             display: none;
         }
 
     .navbar-toggler {
-        display: none;
+        display: none !important;
     }
 
     .top-row {
         justify-content: center;
+    }
+
+    .page-title {
+        text-align: center;
     }
 
     .main-content {
@@ -126,7 +133,7 @@
     }
 }
 
-/* Mobile optimization */
+/* Mobile styles - ALWAYS SHOW HAMBURGER */
 @media (max-width: 767px) {
     .content {
         padding: 0.5rem;
@@ -135,9 +142,17 @@
     .top-row {
         min-height: 56px;
         padding: 0.5rem 1rem;
+        justify-content: flex-start;
     }
 
     .page-title {
         font-size: 1.1rem;
+        text-align: left;
+    }
+
+    /* Force hamburger to be visible */
+    .navbar-toggler {
+        display: flex !important;
+        flex-shrink: 0;
     }
 }

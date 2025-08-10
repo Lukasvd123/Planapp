@@ -6,6 +6,9 @@ using AndroidX.Core.App;
 using Microsoft.Extensions.Logging;
 using com.usagemeter.androidapp.Services;
 using AndroidApp = Android.App.Application;
+using System.Threading.Tasks;
+using System.Threading;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace com.usagemeter.androidapp.Platforms.Android
 {
@@ -16,7 +19,9 @@ namespace com.usagemeter.androidapp.Platforms.Android
         private const string CHANNEL_ID = "planapp_foreground_channel";
         private ILogger<AndroidForegroundService>? _logger;
         private RuleMonitorService? _ruleMonitor;
+        private IAppLaunchMonitor? _appLaunchMonitor;
         private static AndroidForegroundService? _instance;
+        private CancellationTokenSource? _cancellationTokenSource;
 
         public override IBinder? OnBind(Intent? intent) => null;
 
@@ -31,6 +36,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 System.Diagnostics.Debug.WriteLine("AndroidForegroundService started");
 
                 // Start monitoring in background
+                _cancellationTokenSource = new CancellationTokenSource();
                 Task.Run(async () =>
                 {
                     try
@@ -45,14 +51,25 @@ namespace com.usagemeter.androidapp.Platforms.Android
                             {
                                 _logger = serviceProvider.GetService<ILogger<AndroidForegroundService>>();
                                 _ruleMonitor = serviceProvider.GetService<RuleMonitorService>();
+                                _appLaunchMonitor = serviceProvider.GetService<IAppLaunchMonitor>();
 
-                                if (_ruleMonitor != null)
+                                if (_ruleMonitor != null && _appLaunchMonitor != null)
                                 {
-                                    _logger?.LogInformation("Starting rule monitor from foreground service");
-                                    await _ruleMonitor.StartAsync();
+                                    _logger?.LogInformation("Starting enhanced monitoring from foreground service");
+
+                                    // Start the app launch monitor
+                                    await _appLaunchMonitor.StartMonitoringAsync();
+
+                                    // Start the rule monitor
+                                    await _ruleMonitor.StartAsync(_cancellationTokenSource.Token);
 
                                     // Update notification to show monitoring is active
-                                    UpdateNotification("Monitoring Active", "Tracking app usage and enforcing rules");
+                                    UpdateNotification("Enhanced Monitoring Active", "Continuously tracking app usage and enforcing rules");
+                                }
+                                else
+                                {
+                                    _logger?.LogError("Required services not available in foreground service");
+                                    UpdateNotification("Service Error", "Could not start monitoring services");
                                 }
                             }
                         }
@@ -60,6 +77,8 @@ namespace com.usagemeter.androidapp.Platforms.Android
                     catch (Exception ex)
                     {
                         System.Diagnostics.Debug.WriteLine($"Error in foreground service: {ex}");
+                        _logger?.LogError(ex, "Error in foreground service initialization");
+                        UpdateNotification("Service Error", $"Monitoring failed: {ex.Message}");
                     }
                 });
 
@@ -76,6 +95,8 @@ namespace com.usagemeter.androidapp.Platforms.Android
         {
             try
             {
+                _cancellationTokenSource?.Cancel();
+                _appLaunchMonitor?.StopMonitoringAsync().Wait(5000);
                 _ruleMonitor?.StopAsync().Wait(5000);
                 System.Diagnostics.Debug.WriteLine("AndroidForegroundService stopped");
             }
@@ -105,7 +126,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
 
         private Notification CreateNotification()
         {
-            return BuildNotification("Usage Meter Active", "Initializing monitoring...");
+            return BuildNotification("Usage Meter Active", "Initializing enhanced monitoring...");
         }
 
         private void UpdateNotification(string title, string content)
@@ -164,7 +185,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
                     context.StartService(intent);
                 }
 
-                System.Diagnostics.Debug.WriteLine("Foreground service start requested");
+                System.Diagnostics.Debug.WriteLine("Enhanced foreground service start requested");
             }
             catch (Exception ex)
             {

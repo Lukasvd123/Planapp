@@ -130,6 +130,10 @@
         color: #666;
     }
 
+    .app-chip.target {
+        background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+    }
+
 .no-apps-selected, .no-target-app {
     color: #666;
     font-style: italic;
@@ -202,17 +206,32 @@
 
 .radio-content {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.75rem;
+    width: 100%;
 }
 
 .radio-icon {
     font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.radio-text-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
 }
 
 .radio-text {
     font-weight: 500;
     color: #333;
+    font-size: 1rem;
+}
+
+.radio-description {
+    font-size: 0.85rem;
+    color: #666;
+    line-height: 1.3;
 }
 
 /* Target App Selection */
@@ -352,5 +371,15 @@
 
     .page-header h1 {
         font-size: 1.5rem;
+    }
+
+    .radio-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .radio-icon {
+        align-self: center;
     }
 }

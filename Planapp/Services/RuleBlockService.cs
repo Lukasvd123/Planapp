@@ -34,7 +34,7 @@ namespace com.usagemeter.androidapp.Services
                 return;
             }
 
-            _logger.LogInformation($"Triggering rule block for rule: {rule.Name}");
+            _logger.LogInformation($"Triggering rule block for rule: {rule.Name} with action: {rule.ActionType}");
 
             var settings = await _settingsService.GetSettingsAsync();
 
@@ -69,8 +69,10 @@ namespace com.usagemeter.androidapp.Services
             IsBlocking = true;
             CurrentBlockedRule = rule;
 
-            // Handle based on blocking mode
-            switch (settings.BlockingMode)
+            // Handle based on rule's action type and global blocking mode
+            var effectiveBlockingMode = DetermineEffectiveBlockingMode(rule, settings);
+
+            switch (effectiveBlockingMode)
             {
                 case "Instant":
                     // Kill app immediately and go home
@@ -87,14 +89,56 @@ namespace com.usagemeter.androidapp.Services
                     break;
 
                 case "Choice":
-                default:
                     // Show modal with options
+                    await KillCurrentForegroundApp();
+                    RuleTriggered?.Invoke(this, new RuleBlockEventArgs { Rule = rule });
+                    break;
+
+                case "OpenApp":
+                    // Open target app directly
+                    await KillCurrentForegroundApp();
+                    if (!string.IsNullOrEmpty(rule.TargetPackage))
+                    {
+                        await OpenSpecificApp(rule.TargetPackage);
+                    }
+                    else
+                    {
+                        await GoToHome(settings.HomeAppPackage);
+                    }
+                    IsBlocking = false;
+                    CurrentBlockedRule = null;
+                    break;
+
+                default:
+                    // Fallback to choice mode
                     await KillCurrentForegroundApp();
                     RuleTriggered?.Invoke(this, new RuleBlockEventArgs { Rule = rule });
                     break;
             }
 
             await Task.CompletedTask;
+        }
+
+        private string DetermineEffectiveBlockingMode(AppRule rule, AppSettings settings)
+        {
+            // Rule-specific action takes precedence over global settings
+            switch (rule.ActionType)
+            {
+                case "Timer":
+                    return "Timer";
+                case "Instant":
+                    return "Instant";
+                case "OpenApp":
+                    return "OpenApp";
+                case "Choice":
+                    return "Choice";
+                // Legacy support
+                case "LockInApp":
+                    return "Timer";
+                default:
+                    // Fall back to global settings if rule doesn't specify
+                    return settings.BlockingMode;
+            }
         }
 
         public async Task AcknowledgeBlock()

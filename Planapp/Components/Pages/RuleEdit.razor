@@ -71,18 +71,47 @@ else
         <div class="form-section">
             <label class="form-label">Action when limit is reached</label>
             <div class="action-selection">
-                <div class="radio-option @(CurrentRule.ActionType == "LockInApp" ? "selected" : "")" @onclick="@(() => SetActionType("LockInApp"))">
-                    <input type="radio" name="actionType" value="LockInApp" checked="@(CurrentRule.ActionType == "LockInApp")" />
+                <div class="radio-option @(CurrentRule.ActionType == "Timer" ? "selected" : "")" @onclick="@(() => SetActionType("Timer"))">
+                    <input type="radio" name="actionType" value="Timer" checked="@(CurrentRule.ActionType == "Timer")" />
                     <div class="radio-content">
-                        <span class="radio-icon">🔒</span>
-                        <span class="radio-text">Lock in current app</span>
+                        <span class="radio-icon">⏱️</span>
+                        <div class="radio-text-content">
+                            <span class="radio-text">Show countdown timer</span>
+                            <span class="radio-description">Block app with a timer before allowing access</span>
+                        </div>
                     </div>
                 </div>
+
+                <div class="radio-option @(CurrentRule.ActionType == "Instant" ? "selected" : "")" @onclick="@(() => SetActionType("Instant"))">
+                    <input type="radio" name="actionType" value="Instant" checked="@(CurrentRule.ActionType == "Instant")" />
+                    <div class="radio-content">
+                        <span class="radio-icon">🚫</span>
+                        <div class="radio-text-content">
+                            <span class="radio-text">Block immediately</span>
+                            <span class="radio-description">Close app instantly and go to home screen</span>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="radio-option @(CurrentRule.ActionType == "OpenApp" ? "selected" : "")" @onclick="@(() => SetActionType("OpenApp"))">
                     <input type="radio" name="actionType" value="OpenApp" checked="@(CurrentRule.ActionType == "OpenApp")" />
                     <div class="radio-content">
                         <span class="radio-icon">🚀</span>
-                        <span class="radio-text">Open specific app</span>
+                        <div class="radio-text-content">
+                            <span class="radio-text">Redirect to specific app</span>
+                            <span class="radio-description">Close current app and open a productive alternative</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="radio-option @(CurrentRule.ActionType == "Choice" ? "selected" : "")" @onclick="@(() => SetActionType("Choice"))">
+                    <input type="radio" name="actionType" value="Choice" checked="@(CurrentRule.ActionType == "Choice")" />
+                    <div class="radio-content">
+                        <span class="radio-icon">🤔</span>
+                        <div class="radio-text-content">
+                            <span class="radio-text">Give me options</span>
+                            <span class="radio-description">Show multiple choices when limit is reached</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -94,7 +123,7 @@ else
                     @if (!string.IsNullOrEmpty(CurrentRule.TargetAppName))
                     {
                         <div class="selected-target-app">
-                            <span class="app-chip">@CurrentRule.TargetAppName</span>
+                            <span class="app-chip target">@CurrentRule.TargetAppName</span>
                         </div>
                     }
                     else
@@ -154,7 +183,7 @@ else
                     Name = "",
                     ThresholdHours = 1,
                     ThresholdMinutes = 0,
-                    ActionType = "LockInApp",
+                    ActionType = "Timer", // Default to Timer instead of deprecated LockInApp
                     IsEnabled = true
                 };
         }
@@ -167,6 +196,12 @@ else
             {
                 Navigation.NavigateTo("/rules");
                 return;
+            }
+
+            // Migrate old action types
+            if (CurrentRule.ActionType == "LockInApp")
+            {
+                CurrentRule.ActionType = "Timer";
             }
         }
     }

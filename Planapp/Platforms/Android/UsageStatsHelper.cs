@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using AndroidApp = Android.App.Application;
+using Paint = Android.Graphics.Paint;
 
 namespace com.usagemeter.androidapp.Platforms.Android
 {
@@ -30,7 +31,8 @@ namespace com.usagemeter.androidapp.Platforms.Android
 
     public static class UsageStatsHelper
     {
-        private const int ICON_SIZE = 48;
+        private const int ICON_SIZE_SMALL = 48;
+        private const int ICON_SIZE_LARGE = 128; // Higher quality icons
         private static readonly ConcurrentDictionary<string, string> IconCache = new();
         private static readonly ConcurrentDictionary<string, string> NameCache = new();
 
@@ -91,6 +93,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 return new List<DetailedAppUsageInfo>();
             }
         }
+
         public static List<DetailedAppUsageInfo> GetTodayAppUsage()
         {
             try
@@ -106,6 +109,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 return new List<DetailedAppUsageInfo>();
             }
         }
+
         public static List<AndroidAppUsageInfo> GetAppUsage(TimeSpan timeSpan)
         {
             try
@@ -141,63 +145,68 @@ namespace com.usagemeter.androidapp.Platforms.Android
             }
         }
 
-        public static string GetAppIcon(string packageName)
+        public static string GetAppIcon(string packageName, bool highQuality = false)
         {
             if (string.IsNullOrWhiteSpace(packageName))
                 return string.Empty;
 
-            if (IconCache.TryGetValue(packageName, out var inCache))
-                return inCache;                     // may be empty string (= not found)
+            var cacheKey = highQuality ? $"{packageName}_hq" : packageName;
+            if (IconCache.TryGetValue(cacheKey, out var inCache))
+                return inCache;
 
             try
             {
                 var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 var pm = context.PackageManager;
 
-                // -- one happy path --------------------------------------------------
                 var appInfo = pm.GetApplicationInfo(packageName, 0);
                 var drawable = pm.GetApplicationIcon(appInfo);
 
+                var targetSize = highQuality ? ICON_SIZE_LARGE : ICON_SIZE_SMALL;
                 using var bitmap = (drawable as BitmapDrawable)?.Bitmap
-                                   ?? DrawableToBitmap(drawable);
+                                   ?? DrawableToBitmap(drawable, targetSize);
 
                 if (bitmap == null)
                 {
-                    IconCache.TryAdd(packageName, string.Empty);
+                    IconCache.TryAdd(cacheKey, string.Empty);
                     return string.Empty;
                 }
 
-                // Encode to PNG ------------------------------------------------------
+                // Encode to PNG with higher quality for large icons
                 using var ms = new MemoryStream();
-                bitmap.Compress(Bitmap.CompressFormat.Png, 100, ms);
+                var quality = highQuality ? 100 : 85;
+                bitmap.Compress(Bitmap.CompressFormat.Png, quality, ms);
                 var base64 = Convert.ToBase64String(ms.ToArray());
 
-                IconCache.TryAdd(packageName, base64);
+                IconCache.TryAdd(cacheKey, base64);
                 return base64;
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(
                     $"[GetAppIcon] {packageName} → {ex.Message}");
-                IconCache.TryAdd(packageName, string.Empty);
+                IconCache.TryAdd(cacheKey, string.Empty);
                 return string.Empty;
             }
         }
 
-        private static Bitmap? DrawableToBitmap(Drawable drawable)
+        private static Bitmap? DrawableToBitmap(Drawable drawable, int size = ICON_SIZE_SMALL)
         {
             // If it is already a bitmap → scale + return
             if (drawable is BitmapDrawable bd && bd.Bitmap is not null)
             {
-                return Bitmap.CreateScaledBitmap(bd.Bitmap,
-                                                 ICON_SIZE, ICON_SIZE, true);
+                return Bitmap.CreateScaledBitmap(bd.Bitmap, size, size, true);
             }
 
-            // Vector / adaptive icon → draw on canvas
-            var bmp = Bitmap.CreateBitmap(ICON_SIZE, ICON_SIZE,
-                                          Bitmap.Config.Argb8888);
+            // Vector / adaptive icon → draw on canvas with anti-aliasing
+            var bmp = Bitmap.CreateBitmap(size, size, Bitmap.Config.Argb8888);
             var canvas = new Canvas(bmp);
-            drawable.SetBounds(0, 0, ICON_SIZE, ICON_SIZE);
+
+            // Enable anti-aliasing for smoother icons
+            var paint = new Paint(PaintFlags.AntiAlias | PaintFlags.FilterBitmap);
+            canvas.DrawPaint(paint);
+
+            drawable.SetBounds(0, 0, size, size);
             drawable.Draw(canvas);
             return bmp;
         }
@@ -207,7 +216,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
             if (string.IsNullOrWhiteSpace(packageName))
                 return packageName;
 
-            // Local cache first -----------------------------------------------------
+            // Local cache first
             if (NameCache.TryGetValue(packageName, out var cached))
                 return cached;
 
@@ -215,9 +224,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
             {
                 var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 var pm = context.PackageManager;
-                // MetaData flag keeps it compatible with API-24 – 34
-                var appInfo = pm.GetApplicationInfo(packageName,
-                                                    PackageInfoFlags.MetaData);
+                var appInfo = pm.GetApplicationInfo(packageName, PackageInfoFlags.MetaData);
                 var label = pm.GetApplicationLabel(appInfo)?.ToString() ?? packageName;
 
                 NameCache.TryAdd(packageName, label);
@@ -225,7 +232,6 @@ namespace com.usagemeter.androidapp.Platforms.Android
             }
             catch (PackageManager.NameNotFoundException)
             {
-                // Package removed between the time we got usage stats and now
                 return packageName;
             }
             catch (Exception ex)

@@ -60,6 +60,17 @@
                     </div>
                 </div>
             </div>
+
+            @if (!HasUsagePermission || !HasOverlayPermission)
+            {
+                <div class="permission-warning">
+                    <div class="warning-icon">⚠️</div>
+                    <div class="warning-content">
+                        <h3>Permissions Required</h3>
+                        <p>Usage Meter needs these permissions to function properly. Without them, the app cannot monitor usage or block apps when limits are reached.</p>
+                    </div>
+                </div>
+            }
         </div>
 
         <!-- Service Status -->
@@ -71,9 +82,13 @@
                     <div class="status-content">
                         <h3>Rule Monitoring</h3>
                         <p>@(IsMonitoringActive ? "Active - Monitoring app usage" : "Inactive - Click to start")</p>
-                        @if (!IsMonitoringActive && HasUsagePermission)
+                        @if (!IsMonitoringActive && HasUsagePermission && HasOverlayPermission)
                         {
                             <button class="btn-start-monitoring" @onclick="StartMonitoring">Start Monitoring</button>
+                        }
+                        else if (!HasUsagePermission || !HasOverlayPermission)
+                        {
+                            <p class="requirement-text">Requires all permissions to be granted</p>
                         }
                     </div>
                 </div>
@@ -228,7 +243,7 @@
                 AppsMonitored = monitoredPackages.Count;
             }
 
-            IsMonitoringActive = RuleMonitorService != null && Settings.AllRulesEnabled && HasUsagePermission;
+            IsMonitoringActive = RuleMonitorService != null && Settings.AllRulesEnabled && HasUsagePermission && HasOverlayPermission;
 
         }
         catch (Exception ex)
@@ -276,7 +291,7 @@
     {
         try
         {
-            if (HasUsagePermission && Settings?.AllRulesEnabled == true)
+            if (HasUsagePermission && HasOverlayPermission && Settings?.AllRulesEnabled == true)
             {
                 await RuleMonitorService.StartAsync();
                 IsMonitoringActive = true;

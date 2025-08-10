@@ -21,117 +21,112 @@
 
 @if (RulesList == null)
 {
-        <div class="loading-card">
-            <div class="loading-spinner"></div>
-            <h3>Loading rules...</h3>
-        </div>
+    <div class="loading-card">
+        <div class="loading-spinner"></div>
+        <h3>Loading rules...</h3>
+    </div>
 }
 else if (RulesList.Count == 0)
 {
-        <div class="no-data-card">
-            <div class="no-data-icon">📜</div>
-            <h3>No Rules Created</h3>
-            <p>Create your first app usage rule to get started with time management!</p>
-            <button class="btn btn-primary" @onclick="CreateNewRule">
-                <span class="btn-icon">➕</span>
-                Create First Rule
-            </button>
-        </div>
+    <div class="no-data-card">
+        <div class="no-data-icon">📜</div>
+        <h3>No Rules Created</h3>
+        <p>Create your first app usage rule to get started with time management!</p>
+        <button class="btn btn-primary" @onclick="CreateNewRule">
+            <span class="btn-icon">➕</span>
+            Create First Rule
+        </button>
+    </div>
 }
 else
 {
-        <div class="rules-grid">
+    <div class="rules-grid">
         @foreach (var rule in RulesList)
         {
-                    <div class="rule-card @(rule.IsEnabled ? "enabled" : "disabled")">
-                        <div class="rule-header">
-                            <div class="rule-info">
-                                <h3 class="rule-name">@rule.Name</h3>
-                                <div class="rule-status">
+            <div class="rule-card @(rule.IsEnabled ? "enabled" : "disabled")">
+                <div class="rule-header">
+                    <div class="rule-info">
+                        <h3 class="rule-name">@rule.Name</h3>
+                        <div class="rule-status">
                             @if (rule.IsEnabled)
                             {
-                                            <span class="status-badge active">✅ Active</span>
+                                <span class="status-badge active">✅ Active</span>
                             }
                             else
                             {
-                                            <span class="status-badge inactive">⏸️ Paused</span>
+                                <span class="status-badge inactive">⏸️ Paused</span>
                             }
-                                </div>
-                            </div>
-                            <div class="rule-actions">
-                                <button class="btn-icon-small" @onclick="() => EditRule(rule.Id)" title="Edit">
-                                    ✏️
-                                </button>
-                                <button class="btn-icon-small" @onclick="() => ToggleRule(rule)" title="@(rule.IsEnabled ? "Disable" : "Enable")">
-                            @(rule.IsEnabled ? "⏸️" : "▶️")
-                                </button>
-                                <button class="btn-icon-small delete" @onclick="() => DeleteRule(rule.Id)" title="Delete">
-                                    🗑️
-                                </button>
-                            </div>
                         </div>
+                    </div>
+                    <div class="rule-actions">
+                        <button class="btn-icon-small" @onclick="() => EditRule(rule.Id)" title="Edit">
+                            ✏️
+                        </button>
+                        <button class="btn-icon-small" @onclick="() => ToggleRule(rule)" title="@(rule.IsEnabled ? "Disable" : "Enable")">
+                            @(rule.IsEnabled ? "⏸️" : "▶️")
+                        </button>
+                        <button class="btn-icon-small delete" @onclick="() => DeleteRule(rule.Id)" title="Delete">
+                            🗑️
+                        </button>
+                    </div>
+                </div>
 
-                        <div class="rule-details">
-                            <div class="rule-apps">
-                                <strong>Apps:</strong> 
+                <div class="rule-details">
+                    <div class="rule-apps">
+                        <strong>Apps:</strong>
                         @if (rule.SelectedAppNames.Count > 0)
                         {
-                                        <span>@string.Join(", ", rule.SelectedAppNames.Take(3))@(rule.SelectedAppNames.Count > 3 ? $" and {rule.SelectedAppNames.Count - 3} more" : "")</span>
+                            <span>@string.Join(", ", rule.SelectedAppNames.Take(3))@(rule.SelectedAppNames.Count > 3 ? $" and {rule.SelectedAppNames.Count - 3} more" : "")</span>
                         }
                         else
                         {
-                                        <span class="no-apps">No apps selected</span>
+                            <span class="no-apps">No apps selected</span>
                         }
-                            </div>
+                    </div>
 
-                            <div class="rule-threshold">
-                                <strong>Time Limit:</strong> 
+                    <div class="rule-threshold">
+                        <strong>Time Limit:</strong>
                         @if (rule.ThresholdHours > 0)
                         {
-                                        <span>@rule.ThresholdHours h @rule.ThresholdMinutes m</span>
+                            <span>@rule.ThresholdHours h @rule.ThresholdMinutes m</span>
                         }
                         else
                         {
-                                        <span>@rule.ThresholdMinutes minutes</span>
+                            <span>@rule.ThresholdMinutes minutes</span>
                         }
-                            </div>
+                    </div>
 
-                            <div class="rule-action">
-                                <strong>Action:</strong> 
-                        @if (rule.ActionType == "OpenApp")
-                        {
-                                        <span>Open @rule.TargetAppName</span>
-                        }
-                        else
-                        {
-                                        <span>Lock in current app</span>
-                        }
-                            </div>
+                    <div class="rule-action">
+                        <strong>Action:</strong>
+                        <span class="action-description @GetActionClass(rule.ActionType)">
+                            @GetActionIcon(rule.ActionType) @GetActionDescription(rule)
+                        </span>
+                    </div>
 
                     @if (rule.SelectedPackages.Count > 0)
                     {
-                                    <div class="current-usage">
-                                        <strong>Today's Usage:</strong> 
+                        <div class="current-usage">
+                            <strong>Today's Usage:</strong>
                             @if (UsageData.TryGetValue(rule.Id, out var usage))
                             {
-                                                <span class="usage-time @(usage >= rule.ThresholdInMilliseconds ? "over-limit" : "under-limit")">
+                                <span class="usage-time @(usage >= rule.ThresholdInMilliseconds ? "over-limit" : "under-limit")">
                                     @FormatTime(usage)
                                     @if (usage >= rule.ThresholdInMilliseconds)
                                     {
-                                                            <span class="limit-exceeded">⚠️ Limit Exceeded</span>
+                                        <span class="limit-exceeded">⚠️ Limit Exceeded</span>
                                     }
-                                                </span>
+                                </span>
                             }
                             else
                             {
-                                                <span class="usage-loading">Loading...</span>
+                                <span class="usage-loading">Loading...</span>
                             }
-                                    </div>
-                    }
                         </div>
-                    </div>
+                    }
+                </div>
+            </div>
         }
-        </div>
+    </div>
 }
 
 @code {
@@ -148,6 +143,29 @@ else
     private async Task LoadRules()
     {
         RulesList = await RuleService.GetRulesAsync();
+
+        // Migrate legacy action types
+        if (RulesList != null)
+        {
+            bool needsUpdate = false;
+            foreach (var rule in RulesList)
+            {
+                if (rule.ActionType == "LockInApp")
+                {
+                    rule.ActionType = "Timer";
+                    needsUpdate = true;
+                }
+            }
+
+            if (needsUpdate)
+            {
+                foreach (var rule in RulesList.Where(r => r.ActionType == "Timer"))
+                {
+                    await RuleService.SaveRuleAsync(rule);
+                }
+            }
+        }
+
         StateHasChanged();
     }
 
@@ -195,6 +213,45 @@ else
     {
         await RuleService.DeleteRuleAsync(ruleId);
         await LoadRules();
+    }
+
+    private string GetActionDescription(AppRule rule)
+    {
+        return rule.ActionType switch
+        {
+            "Timer" => "Show countdown timer",
+            "Instant" => "Block immediately",
+            "OpenApp" => !string.IsNullOrEmpty(rule.TargetAppName) ? $"Open {rule.TargetAppName}" : "Open target app",
+            "Choice" => "Show options",
+            "LockInApp" => "Show countdown timer", // Legacy support
+            _ => "Unknown action"
+        };
+    }
+
+    private string GetActionIcon(string actionType)
+    {
+        return actionType switch
+        {
+            "Timer" => "⏱️",
+            "Instant" => "🚫",
+            "OpenApp" => "🚀",
+            "Choice" => "🤔",
+            "LockInApp" => "⏱️", // Legacy support
+            _ => "❓"
+        };
+    }
+
+    private string GetActionClass(string actionType)
+    {
+        return actionType switch
+        {
+            "Timer" => "action-timer",
+            "Instant" => "action-instant",
+            "OpenApp" => "action-redirect",
+            "Choice" => "action-choice",
+            "LockInApp" => "action-timer", // Legacy support
+            _ => "action-unknown"
+        };
     }
 
     private string FormatTime(long milliseconds)

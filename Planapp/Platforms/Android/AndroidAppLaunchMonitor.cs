@@ -17,11 +17,12 @@ namespace com.usagemeter.androidapp.Platforms.Android
     {
         private readonly ILogger<AndroidAppLaunchMonitor> _logger;
         private CancellationTokenSource? _cancellationTokenSource;
-        private readonly HashSet<string> _recentLaunches = new();
+        private readonly Dictionary<string, long> _lastUsageCheck = new();
         private DateTime _lastCheckTime = DateTime.Now;
         private string _lastForegroundApp = string.Empty;
         private int _consecutiveErrors = 0;
         private const int MAX_CONSECUTIVE_ERRORS = 10;
+        private const int CHECK_INTERVAL_MS = 3000; // Check every 3 seconds
 
         public event EventHandler<AppLaunchEventArgs>? AppLaunched;
         public bool IsMonitoring { get; private set; }
@@ -39,7 +40,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 return;
             }
 
-            _logger.LogInformation("Starting app launch monitoring");
+            _logger.LogInformation("Starting enhanced app launch monitoring");
 
             try
             {
@@ -59,17 +60,20 @@ namespace com.usagemeter.androidapp.Platforms.Android
 
                 _cancellationTokenSource = new CancellationTokenSource();
                 IsMonitoring = true;
-                _lastCheckTime = DateTime.Now.AddMinutes(-2); // Look back 2 minutes initially
+                _lastCheckTime = DateTime.Now.AddMinutes(-5); // Look back 5 minutes initially
                 _consecutiveErrors = 0;
+
+                // Initialize baseline usage data
+                await InitializeBaselineUsage();
 
                 // Show debug notification that monitoring started
                 AndroidNotificationHelper.ShowAppLaunchNotification(
-                    "Monitoring Started",
-                    "App launch monitoring is now active"
+                    "Enhanced Monitoring Started",
+                    "Continuous app usage monitoring is now active"
                 );
 
                 // Start monitoring task
-                _ = Task.Run(() => MonitorAppLaunches(_cancellationTokenSource.Token));
+                _ = Task.Run(() => EnhancedMonitorLoop(_cancellationTokenSource.Token));
 
                 await Task.CompletedTask;
             }
@@ -92,14 +96,14 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 return;
             }
 
-            _logger.LogInformation("Stopping app launch monitoring");
+            _logger.LogInformation("Stopping enhanced app launch monitoring");
 
             _cancellationTokenSource?.Cancel();
             _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = null;
 
             IsMonitoring = false;
-            _recentLaunches.Clear();
+            _lastUsageCheck.Clear();
 
             // Show debug notification that monitoring stopped
             AndroidNotificationHelper.ShowAppLaunchNotification(
@@ -211,9 +215,43 @@ namespace com.usagemeter.androidapp.Platforms.Android
             }
         }
 
-        private async Task MonitorAppLaunches(CancellationToken cancellationToken)
+        private async Task InitializeBaselineUsage()
         {
-            _logger.LogInformation("App launch monitoring loop started");
+            try
+            {
+                var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
+                if (context == null) return;
+
+                var usageStatsManager = context.GetSystemService(Context.UsageStatsService) as UsageStatsManager;
+                if (usageStatsManager == null) return;
+
+                var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
+                var startTime = endTime - (1000L * 60 * 60 * 24); // 24 hours ago
+
+                var stats = usageStatsManager.QueryUsageStats(UsageStatsInterval.Daily, startTime, endTime);
+
+                if (stats != null)
+                {
+                    foreach (var stat in stats)
+                    {
+                        if (!string.IsNullOrEmpty(stat.PackageName))
+                        {
+                            _lastUsageCheck[stat.PackageName] = stat.TotalTimeInForeground;
+                        }
+                    }
+                }
+
+                _logger.LogInformation($"Initialized baseline usage data for {_lastUsageCheck.Count} apps");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error initializing baseline usage");
+            }
+        }
+
+        private async Task EnhancedMonitorLoop(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Enhanced monitoring loop started");
 
             try
             {
@@ -221,13 +259,13 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 {
                     try
                     {
-                        await CheckForAppLaunches();
+                        await CheckForUsageIncreases();
                         _consecutiveErrors = 0; // Reset error count on success
                     }
                     catch (Exception ex)
                     {
                         _consecutiveErrors++;
-                        _logger.LogError(ex, $"Error checking for app launches (consecutive errors: {_consecutiveErrors})");
+                        _logger.LogError(ex, $"Error checking for app usage increases (consecutive errors: {_consecutiveErrors})");
 
                         if (_consecutiveErrors >= MAX_CONSECUTIVE_ERRORS)
                         {
@@ -244,17 +282,17 @@ namespace com.usagemeter.androidapp.Platforms.Android
                         continue;
                     }
 
-                    // Check every 2 seconds for new app launches
-                    await Task.Delay(2000, cancellationToken);
+                    // Check every 3 seconds
+                    await Task.Delay(CHECK_INTERVAL_MS, cancellationToken);
                 }
             }
             catch (System.OperationCanceledException)
             {
-                _logger.LogInformation("App launch monitoring cancelled");
+                _logger.LogInformation("Enhanced monitoring cancelled");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "App launch monitoring error");
+                _logger.LogError(ex, "Enhanced monitoring error");
                 AndroidNotificationHelper.ShowAppLaunchNotification(
                     "Monitoring Error",
                     $"Monitoring failed: {ex.Message}"
@@ -263,18 +301,18 @@ namespace com.usagemeter.androidapp.Platforms.Android
             finally
             {
                 IsMonitoring = false;
-                _logger.LogInformation("App launch monitoring stopped");
+                _logger.LogInformation("Enhanced monitoring stopped");
             }
         }
 
-        private async Task CheckForAppLaunches()
+        private async Task CheckForUsageIncreases()
         {
             try
             {
                 var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 if (context == null)
                 {
-                    _logger.LogWarning("Android context not available for app launch monitoring");
+                    _logger.LogWarning("Android context not available for monitoring");
                     return;
                 }
 
@@ -286,95 +324,59 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 }
 
                 var currentTime = DateTime.Now;
-                var checkPeriod = currentTime - _lastCheckTime;
-
-                // Only check if enough time has passed
-                if (checkPeriod.TotalSeconds < 1.5) return;
-
                 var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
-                var startTime = endTime - (long)checkPeriod.TotalMilliseconds - 10000; // Extra 10 seconds buffer
+                var startTime = endTime - (1000L * 60 * 60 * 24); // 24 hours ago
 
-                // Get usage events to detect app launches
-                var events = usageStatsManager.QueryEvents(startTime, endTime);
+                // Get current usage stats
+                var stats = usageStatsManager.QueryUsageStats(UsageStatsInterval.Daily, startTime, endTime);
 
-                if (events == null)
+                if (stats == null)
                 {
-                    _logger.LogDebug("No usage events returned");
-                    _lastCheckTime = currentTime;
+                    _logger.LogDebug("No usage stats returned");
                     return;
                 }
 
-                var appLaunches = new List<(string PackageName, long TimeStamp, int EventType)>();
-                var eventObj = new UsageEvents.Event();
+                var appLaunches = new List<(string PackageName, long UsageIncrease, string AppName)>();
 
-                while (events.HasNextEvent)
+                foreach (var stat in stats)
                 {
-                    events.GetNextEvent(eventObj);
+                    if (string.IsNullOrEmpty(stat.PackageName)) continue;
+                    if (stat.PackageName == "com.usagemeter.androidapp") continue; // Skip our own app
 
-                    // Look for activity resume and move to foreground events
-                    if (eventObj.EventType == UsageEventType.ActivityResumed ||
-                        eventObj.EventType == UsageEventType.MoveToForeground)
+                    var packageName = stat.PackageName;
+                    var currentUsage = stat.TotalTimeInForeground;
+
+                    // Check if this is a significant usage increase
+                    if (_lastUsageCheck.TryGetValue(packageName, out var lastUsage))
                     {
-                        appLaunches.Add((
-                            PackageName: eventObj.PackageName ?? "",
-                            TimeStamp: eventObj.TimeStamp,
-                            EventType: (int)eventObj.EventType
-                        ));
-                    }
-                }
+                        var usageIncrease = currentUsage - lastUsage;
 
-                // Process recent app launches
-                var uniqueLaunches = appLaunches
-                    .Where(e => !string.IsNullOrEmpty(e.PackageName))
-                    .Where(e => e.PackageName != "com.usagemeter.androidapp") // Don't monitor our own app
-                    .Where(e => !e.PackageName.StartsWith("com.android.systemui")) // Skip system UI
-                    .Where(e => !e.PackageName.StartsWith("android")) // Skip android system apps
-                    .GroupBy(e => e.PackageName)
-                    .Select(g => g.OrderByDescending(e => e.TimeStamp).First())
-                    .OrderByDescending(e => e.TimeStamp)
-                    .Take(5) // Only process the 5 most recent launches
-                    .ToList();
-
-                _logger.LogDebug($"Found {uniqueLaunches.Count} unique app launches in the last {checkPeriod.TotalSeconds:F1} seconds");
-
-                foreach (var launch in uniqueLaunches)
-                {
-                    var packageName = launch.PackageName;
-                    var launchKey = $"{packageName}_{launch.TimeStamp}";
-
-                    // Skip if we've already processed this launch
-                    if (_recentLaunches.Contains(launchKey)) continue;
-
-                    // Skip if this is the same app that was previously foreground (avoid duplicates)
-                    if (packageName == _lastForegroundApp) continue;
-
-                    _recentLaunches.Add(launchKey);
-                    _lastForegroundApp = packageName;
-
-                    // Clean old entries to prevent memory leak
-                    if (_recentLaunches.Count > 50)
-                    {
-                        var oldEntries = _recentLaunches.Take(25).ToList();
-                        foreach (var old in oldEntries)
+                        // If usage increased by more than 5 seconds, consider it an app launch
+                        if (usageIncrease > 5000) // 5 seconds in milliseconds
                         {
-                            _recentLaunches.Remove(old);
+                            var appName = UsageStatsHelper.GetAppName(packageName);
+                            appLaunches.Add((packageName, usageIncrease, appName));
+
+                            _logger.LogInformation($"Detected app usage: {appName} (+{usageIncrease}ms)");
                         }
                     }
 
-                    var appName = UsageStatsHelper.GetAppName(packageName);
-                    var launchTime = DateTimeOffset.FromUnixTimeMilliseconds(launch.TimeStamp);
+                    // Update the last known usage
+                    _lastUsageCheck[packageName] = currentUsage;
+                }
 
-                    _logger.LogInformation($"App launched: {appName} ({packageName}) at {launchTime:HH:mm:ss}");
-
-                    // Show debug notification for app launch
-                    AndroidNotificationHelper.ShowAppLaunchNotification($"App: {appName}", packageName);
+                // Process detected app launches
+                foreach (var (packageName, usageIncrease, appName) in appLaunches)
+                {
+                    // Show debug notification
+                    AndroidNotificationHelper.ShowAppLaunchNotification($"App Used: {appName}", $"Usage increase: {usageIncrease}ms");
 
                     // Fire the event
                     AppLaunched?.Invoke(this, new AppLaunchEventArgs
                     {
                         PackageName = packageName,
                         AppName = appName,
-                        LaunchedAt = launchTime.DateTime
+                        LaunchedAt = currentTime
                     });
                 }
 
@@ -382,7 +384,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in CheckForAppLaunches");
+                _logger.LogError(ex, "Error in CheckForUsageIncreases");
                 throw; // Re-throw to be caught by the monitoring loop
             }
 

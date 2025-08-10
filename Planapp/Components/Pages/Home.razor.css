@@ -29,51 +29,196 @@
     opacity: 0.9;
 }
 
-/* Permission Banner */
-.permission-banner {
+/* Permissions Section */
+.permissions-section {
+    margin-bottom: 2rem;
+}
+
+.section-title {
+    margin: 0 0 1.5rem 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.permission-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.permission-card {
     display: flex;
     align-items: center;
     gap: 1rem;
-    background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
-    color: white;
     padding: 1.5rem;
-    border-radius: 16px;
-    margin-bottom: 2rem;
-    box-shadow: 0 4px 16px rgba(255, 152, 0, 0.3);
-}
-
-.banner-icon {
-    font-size: 2.5rem;
-}
-
-.banner-content {
-    flex: 1;
-}
-
-    .banner-content h3 {
-        margin: 0 0 0.25rem 0;
-        font-size: 1.3rem;
-    }
-
-    .banner-content p {
-        margin: 0;
-        opacity: 0.9;
-    }
-
-.btn-grant {
-    padding: 0.75rem 1.5rem;
-    background: white;
-    color: #f57c00;
-    border: none;
-    border-radius: 8px;
-    font-weight: 600;
-    cursor: pointer;
+    border-radius: 12px;
+    border: 2px solid;
     transition: transform 0.2s ease;
 }
 
-    .btn-grant:hover {
+    .permission-card:hover {
         transform: translateY(-2px);
     }
+
+    .permission-card.granted {
+        border-color: #4caf50;
+        background: linear-gradient(135deg, #e8f5e8 0%, #f1f8e9 100%);
+    }
+
+    .permission-card.denied {
+        border-color: #f44336;
+        background: linear-gradient(135deg, #ffeaea 0%, #fff5f5 100%);
+    }
+
+.permission-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.permission-content {
+    flex: 1;
+}
+
+    .permission-content h3 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .permission-content p {
+        margin: 0 0 1rem 0;
+        color: #666;
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+
+.btn-permission {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    font-size: 0.85rem;
+}
+
+    .btn-permission:hover {
+        transform: translateY(-1px);
+    }
+
+/* Permission Warning */
+.permission-warning {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+    border: 2px solid #ffc107;
+    border-radius: 12px;
+    margin-top: 1rem;
+}
+
+.warning-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.warning-content h3 {
+    margin: 0 0 0.5rem 0;
+    color: #856404;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.warning-content p {
+    margin: 0;
+    color: #856404;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+/* Service Status */
+.service-status {
+    margin-bottom: 2rem;
+}
+
+.status-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.status-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+    transition: transform 0.2s ease;
+}
+
+    .status-card:hover {
+        transform: translateY(-2px);
+    }
+
+    .status-card.active {
+        border-left: 4px solid #4caf50;
+    }
+
+    .status-card.inactive {
+        border-left: 4px solid #f44336;
+    }
+
+.status-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.status-content {
+    flex: 1;
+}
+
+    .status-content h3 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .status-content p {
+        margin: 0 0 1rem 0;
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+.btn-start-monitoring {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    font-size: 0.85rem;
+}
+
+    .btn-start-monitoring:hover {
+        transform: translateY(-1px);
+    }
+
+.requirement-text {
+    color: #999 !important;
+    font-style: italic;
+    font-size: 0.8rem !important;
+}
 
 /* Stats Grid */
 .stats-grid {
@@ -148,13 +293,6 @@
     box-shadow: 0 4px 16px rgba(0,0,0,0.08);
 }
 
-.section-title {
-    margin: 0 0 1.5rem 0;
-    font-size: 1.4rem;
-    font-weight: 600;
-    color: #333;
-}
-
 /* Top Apps List */
 .top-apps-list {
     display: flex;
@@ -215,71 +353,6 @@
     border-radius: 3px;
     transition: width 0.5s ease;
 }
-
-/* Rules Summary */
-.rules-summary {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.rule-summary-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1rem;
-    background: #f8f9fa;
-    border-radius: 12px;
-}
-
-.rule-icon {
-    font-size: 1.5rem;
-}
-
-.rule-details {
-    flex: 1;
-}
-
-    .rule-details h4 {
-        margin: 0 0 0.25rem 0;
-        font-size: 1rem;
-        color: #333;
-    }
-
-    .rule-details p {
-        margin: 0;
-        color: #666;
-        font-size: 0.85rem;
-    }
-
-.rule-status {
-    padding: 0.25rem 0.75rem;
-    border-radius: 20px;
-    font-size: 0.85rem;
-    font-weight: 500;
-}
-
-    .rule-status.safe {
-        background: #d4edda;
-        color: #155724;
-    }
-
-    .rule-status.exceeded {
-        background: #f8d7da;
-        color: #721c24;
-    }
-
-.view-all-link {
-    display: inline-block;
-    margin-top: 1rem;
-    color: #667eea;
-    text-decoration: none;
-    font-weight: 500;
-}
-
-    .view-all-link:hover {
-        text-decoration: underline;
-    }
 
 /* Quick Actions */
 .quick-actions {
@@ -355,7 +428,16 @@
         grid-template-columns: repeat(2, 1fr);
     }
 
-    .permission-banner {
+    .permission-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .permission-card {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .permission-warning {
         flex-direction: column;
         text-align: center;
     }

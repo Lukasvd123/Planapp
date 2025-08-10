@@ -88,7 +88,7 @@ else
                 <div class="app-icon-container">
                     @if (app.HasIcon)
                     {
-                        <img src="data:image/png;base64,@app.IconBase64"
+                        <img src="data:image/png;base64,@GetHighQualityIcon(app.PackageName, app.IconBase64)"
                              class="app-icon"
                              alt="@app.AppName icon"
                              loading="lazy" />
@@ -147,6 +147,7 @@ else
     private bool HasError = false;
     private string LoadingMessage = "Loading rule...";
     private string ErrorMessage = "";
+    private Dictionary<string, string> HighQualityIconCache = new();
 
     private bool IsTargetSelection => Navigation.Uri.Contains("/select-target/");
     private bool IsSelectionValid => IsTargetSelection ? !string.IsNullOrEmpty(SelectedTargetApp) : SelectedApps.Count > 0;
@@ -175,6 +176,30 @@ else
             IsLoading = false;
             StateHasChanged();
         }
+    }
+
+    private string GetHighQualityIcon(string packageName, string fallbackIcon)
+    {
+        if (HighQualityIconCache.TryGetValue(packageName, out var cached))
+        {
+            return string.IsNullOrEmpty(cached) ? fallbackIcon : cached;
+        }
+
+#if ANDROID
+        try
+        {
+            var hqIcon = com.usagemeter.androidapp.Platforms.Android.UsageStatsHelper.GetAppIcon(packageName, true);
+            if (!string.IsNullOrEmpty(hqIcon))
+            {
+                HighQualityIconCache[packageName] = hqIcon;
+                return hqIcon;
+            }
+        }
+        catch { }
+#endif
+
+        HighQualityIconCache[packageName] = "";
+        return fallbackIcon;
     }
 
     private async Task LoadCurrentRule()
