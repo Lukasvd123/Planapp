@@ -1,7 +1,5 @@
 ﻿@inherits LayoutComponentBase
 @using Microsoft.Extensions.Logging
-
-
 @using com.usagemeter.androidapp.Services
 @using com.usagemeter.androidapp.Models
 @inject IRuleBlockService RuleBlockService
@@ -11,17 +9,25 @@
 @implements IDisposable
 
 <div class="page">
-    <div class="sidebar">
+    <div class="sidebar @NavMenuCssClass" @onclick="ToggleNavMenu">
         <NavMenu />
     </div>
 
-    <main>
+    <main class="main-content">
+        <div class="top-row px-4">
+            <button class="navbar-toggler" @onclick="ToggleNavMenu" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <h1 class="page-title">📱 Usage Meter</h1>
+        </div>
+
         <article class="content px-4">
             @Body
         </article>
     </main>
 </div>
 
+<!-- Rule Blocking Modal -->
 <RuleBlockModal IsVisible="@IsRuleBlocked"
                 BlockedRule="@BlockedRule"
                 CountdownSeconds="@CountdownSeconds"
@@ -32,9 +38,11 @@
     private bool IsRuleBlocked = false;
     private AppRule? BlockedRule = null;
     private int CountdownSeconds = 0;
-    private Timer? CountdownTimer;
     private bool _isInitialized = false;
     private AppSettings? _settings;
+    private bool _navMenuExpanded = false;
+
+    private string? NavMenuCssClass => _navMenuExpanded ? "show" : null;
 
     protected override async Task OnInitializedAsync()
     {
@@ -49,79 +57,45 @@
             RuleBlockService.RuleTriggered += OnRuleTriggered;
             RuleBlockService.RuleAcknowledged += OnRuleAcknowledged;
 
-#if ANDROID
-            // Only start monitoring if on Android and settings allow it
+            // Start monitoring if enabled
             if (_settings.AllRulesEnabled)
             {
-                // Start the foreground service for background monitoring
-                Logger.LogInformation("Starting Android foreground service...");
-                var foregroundService = new com.usagemeter.androidapp.Platforms.Android.AndroidForegroundService();
-                await foregroundService.StartAsync();
-                
-                // Give the service time to start
-                await Task.Delay(2000);
-                
-                Logger.LogInformation("Foreground service started");
+                Logger.LogInformation("Starting rule monitoring...");
+                await RuleMonitorService.StartAsync();
             }
-            else
-            {
-                Logger.LogInformation("Rules are disabled in settings, not starting monitor");
-            }
-#else
-            // For non-Android platforms, start monitoring directly
-            Logger.LogInformation("Starting rule monitoring service...");
-            await RuleMonitorService.StartAsync();
-#endif
 
             _isInitialized = true;
             Logger.LogInformation("MainLayout initialized successfully");
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Error initializing MainLayout - will retry");
-            
-            // Retry initialization after delay
-            await Task.Delay(3000);
-            try
-            {
-                await RuleMonitorService.StartAsync();
-                _isInitialized = true;
-                Logger.LogInformation("MainLayout initialization retry successful");
-            }
-            catch (Exception retryEx)
-            {
-                Logger.LogError(retryEx, "Failed to initialize after retry");
-            }
+            Logger.LogError(ex, "Error initializing MainLayout");
         }
+    }
+
+    private void ToggleNavMenu()
+    {
+        _navMenuExpanded = !_navMenuExpanded;
+        StateHasChanged();
     }
 
     private void OnRuleTriggered(object? sender, RuleBlockEventArgs e)
     {
         try
         {
-            Logger.LogInformation($"Rule triggered: {e.Rule.Name}");
+            Logger.LogInformation($"Rule triggered in MainLayout: {e.Rule.Name}");
 
             InvokeAsync(async () =>
             {
                 BlockedRule = e.Rule;
                 IsRuleBlocked = true;
+                _navMenuExpanded = false; // Close nav menu
 
-                // Get settings for countdown duration
+                // Get countdown duration from settings
                 if (_settings != null)
                 {
-                    if (_settings.BlockingMode == "Timer")
-                    {
-                        CountdownSeconds = _settings.DefaultBlockDurationMinutes * 60 + 
-                                         _settings.DefaultBlockDurationSeconds;
-                    }
-                    else if (_settings.BlockingMode == "Choice")
-                    {
-                        CountdownSeconds = 0; // Let user choose
-                    }
-                    else
-                    {
-                        CountdownSeconds = 0; // Instant mode
-                    }
+                    CountdownSeconds = _settings.DefaultBlockDurationMinutes * 60 + 
+                                     _settings.DefaultBlockDurationSeconds;
                 }
                 else
                 {
@@ -129,6 +103,11 @@
                 }
 
                 StateHasChanged();
+
+                // Force the app to come to foreground
+#if ANDROID
+                await ForceAppToForeground();
+#endif
             });
         }
         catch (Exception ex)
@@ -141,15 +120,13 @@
     {
         try
         {
-            Logger.LogInformation("Rule acknowledged");
+            Logger.LogInformation("Rule acknowledged in MainLayout");
 
             InvokeAsync(() =>
             {
                 IsRuleBlocked = false;
                 BlockedRule = null;
                 CountdownSeconds = 0;
-                StopCountdownTimer();
-
                 StateHasChanged();
             });
         }
@@ -157,12 +134,6 @@
         {
             Logger.LogError(ex, "Error handling rule acknowledged event");
         }
-    }
-
-    private void StopCountdownTimer()
-    {
-        CountdownTimer?.Dispose();
-        CountdownTimer = null;
     }
 
     private async Task OnAcknowledgeRule()
@@ -191,6 +162,32 @@
         }
     }
 
+#if ANDROID
+    private async Task ForceAppToForeground()
+    {
+        try
+        {
+            var activity = Platform.CurrentActivity;
+            if (activity != null)
+            {
+                // Bring activity to front
+                var intent = new Android.Content.Intent(activity, typeof(MainActivity));
+                intent.AddFlags(Android.Content.ActivityFlags.NewTask | 
+                               Android.Content.ActivityFlags.ClearTop | 
+                               Android.Content.ActivityFlags.SingleTop);
+                intent.PutExtra("FORCE_FOREGROUND", true);
+                
+                activity.StartActivity(intent);
+                Logger.LogInformation("Forced app to foreground");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error forcing app to foreground");
+        }
+    }
+#endif
+
     public void Dispose()
     {
         try
@@ -198,14 +195,11 @@
             Logger.LogInformation("MainLayout disposing...");
 
             // Unsubscribe from events
-            RuleBlockService.RuleTriggered -= OnRuleTriggered;
-            RuleBlockService.RuleAcknowledged -= OnRuleAcknowledged;
-
-            // Stop countdown timer
-            StopCountdownTimer();
-
-            // Note: We don't stop the monitoring service here as it should
-            // continue running in the background via the foreground service
+            if (RuleBlockService != null)
+            {
+                RuleBlockService.RuleTriggered -= OnRuleTriggered;
+                RuleBlockService.RuleAcknowledged -= OnRuleAcknowledged;
+            }
 
             Logger.LogInformation("MainLayout disposed");
         }

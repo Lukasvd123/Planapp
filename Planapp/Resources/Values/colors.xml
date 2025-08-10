@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Usage Meter Color Scheme -->
+    <color name="usage_meter_primary">#667eea</color>
+    <color name="usage_meter_primary_dark">#5a67d8</color>
+    <color name="usage_meter_accent">#764ba2</color>
+    <color name="usage_meter_background">#ffffff</color>
+    <color name="usage_meter_surface">#f8f9fa</color>
+    
+    <!-- Text colors -->
+    <color name="usage_meter_text_primary">#333333</color>
+    <color name="usage_meter_text_secondary">#666666</color>
+    
+    <!-- Status colors -->
+    <color name="usage_meter_success">#4caf50</color>
+    <color name="usage_meter_warning">#ff9800</color>
+    <color name="usage_meter_error">#f44336</color>
+    
+    <!-- Transparent colors for overlays -->
+    <color name="usage_meter_overlay">#80000000</color>
+    <color name="usage_meter_card_shadow">#1a000000</color>
+</resources>

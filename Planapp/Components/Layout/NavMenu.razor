@@ -3,16 +3,13 @@
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">📱 Usage Meter</a>
-        <button class="navbar-toggler" type="button" @onclick="ToggleNavMenu" aria-controls="navigation" aria-expanded="@navMenuExpanded" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
     </div>
 </div>
 
-<div class="nav-scrollable @NavMenuCssClass" @onclick="CloseNavMenu">
+<div class="nav-scrollable">
     <nav class="flex-column">
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All" @onclick="CloseNavMenu">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Dashboard
             </NavLink>
         </div>
@@ -21,19 +18,19 @@
         @if (DeviceInfo.Platform == DevicePlatform.Android)
         {
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="rules" @onclick="CloseNavMenu">
+                <NavLink class="nav-link" href="rules">
                     <span class="bi bi-rules-nav-menu" aria-hidden="true"></span> Rules
                 </NavLink>
             </div>
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="android-usage" @onclick="CloseNavMenu">
+                <NavLink class="nav-link" href="android-usage">
                     <span class="bi bi-phone-nav-menu" aria-hidden="true"></span> App Usage
                 </NavLink>
             </div>
         }
 
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="settings" @onclick="CloseNavMenu">
+            <NavLink class="nav-link" href="settings">
                 <span class="bi bi-settings-nav-menu" aria-hidden="true"></span> Settings
             </NavLink>
         </div>
@@ -49,12 +46,12 @@
         @if (isDebugBuild)
         {
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="rule-test" @onclick="CloseNavMenu">
+                <NavLink class="nav-link" href="rule-test">
                     <span class="bi bi-test-nav-menu" aria-hidden="true"></span> Test Rules
                 </NavLink>
             </div>
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="launch-test" @onclick="CloseNavMenu">
+                <NavLink class="nav-link" href="launch-test">
                     <span class="bi bi-launch-test-nav-menu" aria-hidden="true"></span> Launch Test
                 </NavLink>
             </div>
@@ -63,17 +60,5 @@
 </div>
 
 @code {
-    private bool navMenuExpanded = false;
 
-    private string? NavMenuCssClass => navMenuExpanded ? "show" : null;
-
-    private void ToggleNavMenu()
-    {
-        navMenuExpanded = !navMenuExpanded;
-    }
-
-    private void CloseNavMenu()
-    {
-        navMenuExpanded = false;
-    }
 }

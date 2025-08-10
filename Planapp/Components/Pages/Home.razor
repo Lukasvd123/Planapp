@@ -2,9 +2,11 @@
 @inject com.usagemeter.androidapp.Services.IRuleService RuleService
 @inject com.usagemeter.androidapp.Services.IUsageStatsService UsageStatsService
 @inject com.usagemeter.androidapp.Services.ISettingsService SettingsService
+@inject com.usagemeter.androidapp.Services.RuleMonitorService RuleMonitorService
 @inject NavigationManager Navigation
 @using com.usagemeter.androidapp.Services
 @using com.usagemeter.androidapp.Models
+@implements IDisposable
 
 <div class="dashboard-container">
     <div class="dashboard-header">
@@ -14,115 +16,141 @@
 
     @if (DeviceInfo.Platform == DevicePlatform.Android)
     {
-        @if (!HasUsagePermission)
-        {
-            <div class="permission-banner">
-                <div class="banner-icon">⚠️</div>
-                <div class="banner-content">
-                    <h3>Permission Required</h3>
-                    <p>To track your app usage and enforce rules, please grant usage access permission.</p>
+        <!-- Permission Status Section -->
+        <div class="permissions-section">
+            <h2 class="section-title">🔐 Required Permissions</h2>
+            
+            <div class="permission-cards">
+                <!-- Usage Stats Permission -->
+                <div class="permission-card @(HasUsagePermission ? "granted" : "denied")">
+                    <div class="permission-icon">@(HasUsagePermission ? "✅" : "❌")</div>
+                    <div class="permission-content">
+                        <h3>Usage Statistics</h3>
+                        <p>@(HasUsagePermission ? "Granted - Can track app usage" : "Required to monitor app usage")</p>
+                        @if (!HasUsagePermission)
+                        {
+                            <button class="btn-permission" @onclick="RequestUsagePermission">Grant Permission</button>
+                        }
+                    </div>
                 </div>
-                <button class="btn-grant" @onclick="RequestPermission">Grant Permission</button>
-            </div>
-        }
 
-        <div class="stats-grid">
-            <div class="stat-card primary">
-                <div class="stat-icon">📊</div>
-                <div class="stat-content">
-                    <div class="stat-value">@(TodayUsage != null ? FormatTime(TodayUsage.Value) : "--")</div>
-                    <div class="stat-label">Today's Screen Time</div>
+                <!-- Overlay Permission -->
+                <div class="permission-card @(HasOverlayPermission ? "granted" : "denied")">
+                    <div class="permission-icon">@(HasOverlayPermission ? "✅" : "❌")</div>
+                    <div class="permission-content">
+                        <h3>Display Over Apps</h3>
+                        <p>@(HasOverlayPermission ? "Granted - Can show blocking screen" : "Required to enforce rules over other apps")</p>
+                        @if (!HasOverlayPermission)
+                        {
+                            <button class="btn-permission" @onclick="RequestOverlayPermission">Grant Permission</button>
+                        }
+                    </div>
                 </div>
-            </div>
 
-            <div class="stat-card secondary">
-                <div class="stat-icon">📋</div>
-                <div class="stat-content">
-                    <div class="stat-value">@ActiveRulesCount</div>
-                    <div class="stat-label">Active Rules</div>
-                </div>
-            </div>
-
-            <div class="stat-card accent">
-                <div class="stat-icon">📱</div>
-                <div class="stat-content">
-                    <div class="stat-value">@AppsMonitored</div>
-                    <div class="stat-label">Apps Monitored</div>
-                </div>
-            </div>
-
-            <div class="stat-card success">
-                <div class="stat-icon">✅</div>
-                <div class="stat-content">
-                    <div class="stat-value">@(Settings?.AllRulesEnabled == true ? "ON" : "OFF")</div>
-                    <div class="stat-label">Protection Status</div>
+                <!-- Notification Permission -->
+                <div class="permission-card @(HasNotificationPermission ? "granted" : "denied")">
+                    <div class="permission-icon">@(HasNotificationPermission ? "✅" : "⚠️")</div>
+                    <div class="permission-content">
+                        <h3>Notifications</h3>
+                        <p>@(HasNotificationPermission ? "Granted - Can show alerts" : "Recommended for rule notifications")</p>
+                        @if (!HasNotificationPermission)
+                        {
+                            <button class="btn-permission" @onclick="RequestNotificationPermission">Grant Permission</button>
+                        }
+                    </div>
                 </div>
             </div>
         </div>
 
-        @if (TopApps != null && TopApps.Count > 0)
-        {
-            <div class="section-card">
-                <h2 class="section-title">🏆 Most Used Apps Today</h2>
-                <div class="top-apps-list">
-                    @foreach (var app in TopApps.Take(5))
-                    {
-                        <div class="top-app-item">
-                            <div class="app-rank">#@(TopApps.IndexOf(app) + 1)</div>
-                            <div class="app-info">
-                                <span class="app-name">@app.AppName</span>
-                                <span class="app-usage">@FormatTime(app.TotalTimeInForeground)</span>
-                            </div>
-                            <div class="usage-bar">
-                                <div class="usage-fill" style="width: @GetUsagePercentage(app)%"></div>
-                            </div>
-                        </div>
-                    }
+        <!-- Service Status -->
+        <div class="service-status">
+            <h2 class="section-title">⚙️ Service Status</h2>
+            <div class="status-cards">
+                <div class="status-card @(IsMonitoringActive ? "active" : "inactive")">
+                    <div class="status-icon">@(IsMonitoringActive ? "🟢" : "🔴")</div>
+                    <div class="status-content">
+                        <h3>Rule Monitoring</h3>
+                        <p>@(IsMonitoringActive ? "Active - Monitoring app usage" : "Inactive - Click to start")</p>
+                        @if (!IsMonitoringActive && HasUsagePermission)
+                        {
+                            <button class="btn-start-monitoring" @onclick="StartMonitoring">Start Monitoring</button>
+                        }
+                    </div>
                 </div>
             </div>
-        }
+        </div>
 
-        @if (ActiveRules != null && ActiveRules.Count > 0)
+        @if (HasUsagePermission)
         {
-            <div class="section-card">
-                <h2 class="section-title">🛡️ Active Protection Rules</h2>
-                <div class="rules-summary">
-                    @foreach (var rule in ActiveRules.Take(3))
-                    {
-                        <div class="rule-summary-item">
-                            <div class="rule-icon">⏰</div>
-                            <div class="rule-details">
-                                <h4>@rule.Name</h4>
-                                <p>Limit: @FormatTime(rule.ThresholdInMilliseconds) • @rule.SelectedAppNames.Count apps</p>
-                            </div>
-                            <div class="rule-status @(IsRuleExceeded(rule) ? "exceeded" : "safe")">
-                                @(IsRuleExceeded(rule) ? "Exceeded" : "Within Limit")
-                            </div>
-                        </div>
-                    }
+            <div class="stats-grid">
+                <div class="stat-card primary">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-content">
+                        <div class="stat-value">@(TodayUsage != null ? FormatTime(TodayUsage.Value) : "--")</div>
+                        <div class="stat-label">Today's Screen Time</div>
+                    </div>
                 </div>
-                @if (ActiveRules.Count > 3)
-                {
-                    <a href="/rules" class="view-all-link">View all @ActiveRules.Count rules →</a>
-                }
+
+                <div class="stat-card secondary">
+                    <div class="stat-icon">📋</div>
+                    <div class="stat-content">
+                        <div class="stat-value">@ActiveRulesCount</div>
+                        <div class="stat-label">Active Rules</div>
+                    </div>
+                </div>
+
+                <div class="stat-card accent">
+                    <div class="stat-icon">📱</div>
+                    <div class="stat-content">
+                        <div class="stat-value">@AppsMonitored</div>
+                        <div class="stat-label">Apps Monitored</div>
+                    </div>
+                </div>
+
+                <div class="stat-card success">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-content">
+                        <div class="stat-value">@(Settings?.AllRulesEnabled == true ? "ON" : "OFF")</div>
+                        <div class="stat-label">Protection Status</div>
+                    </div>
+                </div>
             </div>
+
+            @if (TopApps != null && TopApps.Count > 0)
+            {
+                <div class="section-card">
+                    <h2 class="section-title">🏆 Most Used Apps Today</h2>
+                    <div class="top-apps-list">
+                        @foreach (var app in TopApps.Take(5))
+                        {
+                            <div class="top-app-item">
+                                <div class="app-rank">#@(TopApps.IndexOf(app) + 1)</div>
+                                <div class="app-info">
+                                    <span class="app-name">@app.AppName</span>
+                                    <span class="app-usage">@FormatTime(app.TotalTimeInForeground)</span>
+                                </div>
+                                <div class="usage-bar">
+                                    <div class="usage-fill" style="width: @GetUsagePercentage(app)%"></div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
         }
 
         <div class="quick-actions">
             <h2 class="section-title">⚡ Quick Actions</h2>
             <div class="action-buttons">
-                <button class="action-btn"
-                        @onclick='() => Navigation.NavigateTo("/rules/edit/new")'>
+                <button class="action-btn" @onclick='() => Navigation.NavigateTo("/rules/edit/new")'>
                     <span class="action-icon">➕</span>
                     <span>Create Rule</span>
                 </button>
-                <button class="action-btn"
-                        @onclick='() => Navigation.NavigateTo("/android-usage")'>
+                <button class="action-btn" @onclick='() => Navigation.NavigateTo("/android-usage")'>
                     <span class="action-icon">📊</span>
                     <span>View Usage</span>
                 </button>
-                <button class="action-btn"
-                        @onclick='() => Navigation.NavigateTo("/settings")'>
+                <button class="action-btn" @onclick='() => Navigation.NavigateTo("/settings")'>
                     <span class="action-icon">⚙️</span>
                     <span>Settings</span>
                 </button>
@@ -146,42 +174,49 @@
 
 @code {
     private bool HasUsagePermission = false;
+    private bool HasOverlayPermission = false;
+    private bool HasNotificationPermission = false;
+    private bool IsMonitoringActive = false;
     private long? TodayUsage;
     private int ActiveRulesCount = 0;
     private int AppsMonitored = 0;
     private List<AppUsageInfo>? TopApps;
     private List<AppRule>? ActiveRules;
     private AppSettings? Settings;
-    private Dictionary<string, long> RuleUsageData = new();
+    private Timer? _refreshTimer;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadDashboardData();
+        
+        // Refresh permissions every 5 seconds
+        _refreshTimer = new Timer(async _ => 
+        {
+            await InvokeAsync(async () =>
+            {
+                await CheckPermissions();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
     }
 
     private async Task LoadDashboardData()
     {
         try
         {
-            // Load settings
             Settings = await SettingsService.GetSettingsAsync();
-
-            // Check permission
-            HasUsagePermission = UsageStatsService.HasUsagePermission();
-
+            await CheckPermissions();
+            
             if (HasUsagePermission)
             {
-                // Load usage data
                 var apps = await UsageStatsService.GetAppUsageAsync();
                 TopApps = apps.OrderByDescending(a => a.TotalTimeInForeground).ToList();
                 TodayUsage = apps.Sum(a => a.TotalTimeInForeground);
 
-                // Load rules
                 var allRules = await RuleService.GetRulesAsync();
                 ActiveRules = allRules.Where(r => r.IsEnabled && Settings.AllRulesEnabled).ToList();
                 ActiveRulesCount = ActiveRules.Count;
 
-                // Calculate monitored apps
                 var monitoredPackages = new HashSet<string>();
                 foreach (var rule in ActiveRules)
                 {
@@ -191,34 +226,106 @@
                     }
                 }
                 AppsMonitored = monitoredPackages.Count;
-
-                // Load usage data for rules
-                foreach (var rule in ActiveRules)
-                {
-                    if (rule.SelectedPackages.Count > 0)
-                    {
-                        var usage = await RuleService.GetCombinedUsageForAppsAsync(rule.SelectedPackages);
-                        RuleUsageData[rule.Id] = usage;
-                    }
-                }
             }
+
+            IsMonitoringActive = RuleMonitorService != null && Settings.AllRulesEnabled && HasUsagePermission;
+
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error loading dashboard data: {ex}");
         }
+    }
 
-        StateHasChanged();
+    private async Task CheckPermissions()
+    {
+        try
+        {
+#if ANDROID
+            HasUsagePermission = UsageStatsService.HasUsagePermission();
+            
+            // Check overlay permission
+            var context = Platform.CurrentActivity?.ApplicationContext ?? global::Android.App.Application.Context;
+            if (context != null && global::Android.OS.Build.VERSION.SdkInt >= global::Android.OS.BuildVersionCodes.M)
+            {
+                HasOverlayPermission = global::Android.Provider.Settings.CanDrawOverlays(context);
+            }
+            else
+            {
+                HasOverlayPermission = true; // Older Android versions don't need this
+            }
+
+            // Check notification permission
+            if (global::Android.OS.Build.VERSION.SdkInt >= global::Android.OS.BuildVersionCodes.Tiramisu)
+            {
+                HasNotificationPermission = com.usagemeter.androidapp.Platforms.Android.AndroidNotificationHelper.CheckNotificationPermission();
+            }
+            else
+            {
+                HasNotificationPermission = true; // Older versions don't need explicit permission
+            }
+#endif
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error checking permissions: {ex}");
+        }
+    }
+
+    private async Task StartMonitoring()
+    {
+        try
+        {
+            if (HasUsagePermission && Settings?.AllRulesEnabled == true)
+            {
+                await RuleMonitorService.StartAsync();
+                IsMonitoringActive = true;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error starting monitoring: {ex}");
+        }
+    }
+
+    private void RequestUsagePermission()
+    {
+        UsageStatsService.RequestUsageAccess();
+    }
+
+    private async Task RequestOverlayPermission()
+    {
+#if ANDROID
+        try
+        {
+            var context = Platform.CurrentActivity?.ApplicationContext ?? global::Android.App.Application.Context;
+            if (context != null)
+            {
+                var intent = new global::Android.Content.Intent(global::Android.Provider.Settings.ActionManageOverlayPermission);
+                intent.SetData(global::Android.Net.Uri.Parse($"package:{context.PackageName}"));
+                intent.AddFlags(global::Android.Content.ActivityFlags.NewTask);
+                context.StartActivity(intent);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error requesting overlay permission: {ex}");
+        }
+#endif
+    }
+
+    private void RequestNotificationPermission()
+    {
+#if ANDROID
+        com.usagemeter.androidapp.Platforms.Android.AndroidNotificationHelper.RequestNotificationPermission();
+#endif
     }
 
     private async Task RefreshData()
     {
         await LoadDashboardData();
-    }
-
-    private void RequestPermission()
-    {
-        UsageStatsService.RequestUsageAccess();
+        StateHasChanged();
     }
 
     private string GetGreeting()
@@ -257,12 +364,8 @@
         return (app.TotalTimeInForeground / (double)TodayUsage) * 100;
     }
 
-    private bool IsRuleExceeded(AppRule rule)
+    public void Dispose()
     {
-        if (RuleUsageData.TryGetValue(rule.Id, out var usage))
-        {
-            return usage >= rule.ThresholdInMilliseconds;
-        }
-        return false;
+        _refreshTimer?.Dispose();
     }
 }

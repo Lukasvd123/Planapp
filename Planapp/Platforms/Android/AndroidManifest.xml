@@ -1,32 +1,34 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           xmlns:tools="http://schemas.android.com/tools"
-          package="com.usagemeter.androidapp"
-          android:versionCode="1">
+          package="com.usagemeter.androidapp">
 
   <application
       android:allowBackup="true"
       android:supportsRtl="true"
       android:label="Usage Meter"
-      android:icon="@mipmap/appicon"
-      android:roundIcon="@mipmap/appicon_round"
-      android:requestLegacyExternalStorage="true"
+      android:theme="@style/Maui.SplashTheme"
       android:usesCleartextTraffic="true">
 
-    <!-- Main Activity: replace the auto-generated one -->
+    <!-- Main Activity -->
     <activity
       android:name="com.usagemeter.androidapp.MainActivity"
-     
       android:exported="true"
       android:launchMode="singleTop"
-      android:screenOrientation="portrait">
+      android:theme="@style/Maui.SplashTheme"
+      android:screenOrientation="portrait"
+      android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
+      android:windowSoftInputMode="adjustResize"
+      android:excludeFromRecents="false"
+      android:taskAffinity="">
+      
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.LAUNCHER" />
       </intent-filter>
     </activity>
 
-    <!-- Foreground Service for monitoring -->
+    <!-- Foreground Service -->
     <service
       android:name=".Platforms.Android.AndroidForegroundService"
       android:enabled="true"
@@ -38,48 +40,37 @@
   <!-- Essential permissions -->
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
   <uses-permission android:name="android.permission.INTERNET" />
-
-  <!-- App usage monitoring -->
   <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" tools:ignore="ProtectedPermissions"/>
   <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
-
-  <!-- Foreground service permission -->
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-  
-  <!-- App launching and management -->
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
   <uses-permission android:name="android.permission.WAKE_LOCK" />
-
-  <!-- Notifications -->
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <uses-permission android:name="android.permission.VIBRATE" />
-  
-  <!-- For Android 13+ notification permission -->
   <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
-  
-  <!-- For better app interaction -->
   <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
   <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-  
-  <!-- Additional permissions for better app control -->
   <uses-permission android:name="android.permission.GET_TASKS" />
   <uses-permission android:name="android.permission.REORDER_TASKS" />
 
-  <!-- For Android 11+ (API 30+) - Query other packages -->
+  <!-- Package queries for Android 11+ -->
   <queries>
     <intent>
       <action android:name="android.intent.action.MAIN" />
       <category android:name="android.intent.category.LAUNCHER" />
     </intent>
-    <!-- Allow querying all packages for better app launching -->
     <intent>
       <action android:name="android.intent.action.VIEW" />
     </intent>
-    <!-- Query for apps that can handle various intents -->
     <intent>
       <action android:name="android.intent.action.SEND" />
       <data android:mimeType="*/*" />
     </intent>
+    <intent>
+      <action android:name="android.intent.action.MAIN" />
+      <category android:name="android.intent.category.HOME" />
+    </intent>
   </queries>
+
 </manifest>
