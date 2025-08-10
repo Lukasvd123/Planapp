@@ -49,9 +49,7 @@
         <!-- Raw Assets -->
         <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
     </ItemGroup>
-<ItemGroup Condition="$(TargetFramework.Contains('-android'))">
-    <PackageReference Include="Microsoft.Maui.Controls.Material" Version="9.0.14" />
-  </ItemGroup>
+
     <ItemGroup>
         <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
