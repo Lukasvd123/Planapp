@@ -22,7 +22,8 @@ namespace com.usagemeter.androidapp.Platforms.Android
         private string _lastForegroundApp = string.Empty;
         private int _consecutiveErrors = 0;
         private const int MAX_CONSECUTIVE_ERRORS = 10;
-        private const int CHECK_INTERVAL_MS = 3000; // Check every 3 seconds
+        private const int CHECK_INTERVAL_MS = 1000; // Check every 1 second for better responsiveness
+        private const int USAGE_THRESHOLD_MS = 1000; // 1 second minimum to consider app launched
 
         public event EventHandler<AppLaunchEventArgs>? AppLaunched;
         public bool IsMonitoring { get; private set; }
@@ -40,13 +41,10 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 return;
             }
 
-            _logger.LogInformation("Starting enhanced app launch monitoring");
+            _logger.LogInformation("Starting enhanced app launch monitoring with 1-second polling");
 
             try
             {
-                // Initialize notification channel first
-                AndroidNotificationHelper.InitializeNotificationChannel();
-
                 // Check permissions thoroughly
                 if (!await CheckAndRequestPermissions())
                 {
@@ -60,7 +58,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
 
                 _cancellationTokenSource = new CancellationTokenSource();
                 IsMonitoring = true;
-                _lastCheckTime = DateTime.Now.AddMinutes(-5); // Look back 5 minutes initially
+                _lastCheckTime = DateTime.Now.AddMinutes(-1); // Look back 1 minute initially
                 _consecutiveErrors = 0;
 
                 // Initialize baseline usage data
@@ -69,11 +67,11 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 // Show debug notification that monitoring started
                 AndroidNotificationHelper.ShowAppLaunchNotification(
                     "Enhanced Monitoring Started",
-                    "Continuous app usage monitoring is now active"
+                    "Fast polling app usage monitoring is now active (1-second intervals)"
                 );
 
-                // Start monitoring task
-                _ = Task.Run(() => EnhancedMonitorLoop(_cancellationTokenSource.Token));
+                // Start monitoring task with higher priority
+                _ = Task.Run(() => EnhancedMonitorLoop(_cancellationTokenSource.Token), _cancellationTokenSource.Token);
 
                 await Task.CompletedTask;
             }
@@ -125,38 +123,14 @@ namespace com.usagemeter.androidapp.Platforms.Android
                     return false;
                 }
 
-                // Check usage stats permission
+                // Check usage stats permission with multiple methods
                 var hasUsagePermission = HasUsageStatsPermission();
                 _logger.LogInformation($"Usage stats permission: {hasUsagePermission}");
 
                 if (!hasUsagePermission)
                 {
                     _logger.LogWarning("Usage stats permission not granted");
-
-                    // Try to open usage settings
-                    try
-                    {
-                        var intent = new Intent(global::Android.Provider.Settings.ActionUsageAccessSettings);
-                        intent.AddFlags(ActivityFlags.NewTask);
-                        context.StartActivity(intent);
-                        _logger.LogInformation("Opened usage access settings");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to open usage settings");
-                    }
-
                     return false;
-                }
-
-                // Check notification permission for Android 13+
-                if (Build.VERSION.SdkInt >= BuildVersionCodes.Tiramisu)
-                {
-                    if (!AndroidNotificationHelper.CheckNotificationPermission())
-                    {
-                        _logger.LogInformation("Requesting notification permission");
-                        AndroidNotificationHelper.RequestNotificationPermission();
-                    }
                 }
 
                 return true;
@@ -200,7 +174,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 }
 
                 var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
-                var startTime = endTime - (1000L * 60 * 60 * 2); // 2 hours ago
+                var startTime = endTime - (1000L * 60 * 60); // 1 hour ago
 
                 var stats = usageStatsManager.QueryUsageStats(UsageStatsInterval.Daily, startTime, endTime);
                 var hasData = stats != null && stats.Count > 0;
@@ -226,7 +200,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 if (usageStatsManager == null) return;
 
                 var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
-                var startTime = endTime - (1000L * 60 * 60 * 24); // 24 hours ago
+                var startTime = endTime - (1000L * 60 * 60); // 1 hour ago
 
                 var stats = usageStatsManager.QueryUsageStats(UsageStatsInterval.Daily, startTime, endTime);
 
@@ -251,7 +225,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
 
         private async Task EnhancedMonitorLoop(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Enhanced monitoring loop started");
+            _logger.LogInformation("Enhanced monitoring loop started with 1-second intervals");
 
             try
             {
@@ -282,7 +256,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
                         continue;
                     }
 
-                    // Check every 3 seconds
+                    // Check every 1 second for faster detection
                     await Task.Delay(CHECK_INTERVAL_MS, cancellationToken);
                 }
             }
@@ -325,7 +299,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
 
                 var currentTime = DateTime.Now;
                 var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
-                var startTime = endTime - (1000L * 60 * 60 * 24); // 24 hours ago
+                var startTime = endTime - (1000L * 60 * 60 * 2); // 2 hours ago for better data
 
                 // Get current usage stats
                 var stats = usageStatsManager.QueryUsageStats(UsageStatsInterval.Daily, startTime, endTime);
@@ -351,8 +325,8 @@ namespace com.usagemeter.androidapp.Platforms.Android
                     {
                         var usageIncrease = currentUsage - lastUsage;
 
-                        // If usage increased by more than 5 seconds, consider it an app launch
-                        if (usageIncrease > 5000) // 5 seconds in milliseconds
+                        // If usage increased by more than threshold, consider it an app launch
+                        if (usageIncrease > USAGE_THRESHOLD_MS) // 1 second threshold
                         {
                             var appName = UsageStatsHelper.GetAppName(packageName);
                             appLaunches.Add((packageName, usageIncrease, appName));
@@ -369,7 +343,10 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 foreach (var (packageName, usageIncrease, appName) in appLaunches)
                 {
                     // Show debug notification
-                    AndroidNotificationHelper.ShowAppLaunchNotification($"App Used: {appName}", $"Usage increase: {usageIncrease}ms");
+                    AndroidNotificationHelper.ShowAppLaunchNotification(
+                        $"App Used: {appName}",
+                        $"Usage increase: {usageIncrease}ms"
+                    );
 
                     // Fire the event
                     AppLaunched?.Invoke(this, new AppLaunchEventArgs

@@ -6,6 +6,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using com.usagemeter.androidapp.Models;
 
+#if ANDROID
+using com.usagemeter.androidapp.Platforms.Android;
+#endif
+
 namespace com.usagemeter.androidapp.Services
 {
     public class RuleMonitorService
@@ -47,7 +51,15 @@ namespace com.usagemeter.androidapp.Services
                 // Start monitoring app launches
                 await _appLaunchMonitor.StartMonitoringAsync();
 
-                _logger.LogInformation("Rule monitoring service started successfully - listening for app launches");
+                _logger.LogInformation($"Rule monitoring service started successfully - listening for app launches. IsMonitoring: {_appLaunchMonitor.IsMonitoring}");
+
+#if ANDROID
+                // Show debug notification
+                AndroidNotificationHelper.ShowAppLaunchNotification(
+                    "Rule Monitor Started",
+                    "Now monitoring app launches for rule triggers"
+                );
+#endif
             }
             catch (Exception ex)
             {
@@ -95,11 +107,28 @@ namespace com.usagemeter.androidapp.Services
         {
             try
             {
-                _logger.LogInformation($"Processing app launch: {e.AppName} ({e.PackageName})");
+                _logger.LogInformation($"🚀 APP LAUNCHED: {e.AppName} ({e.PackageName}) at {e.LaunchedAt:HH:mm:ss}");
+
+#if ANDROID
+                // Show debug notification for every app launch
+                AndroidNotificationHelper.ShowAppLaunchNotification(
+                    $"App Launched: {e.AppName}",
+                    $"Checking rules for {e.PackageName} at {e.LaunchedAt:HH:mm:ss}"
+                );
+#endif
 
                 using var scope = _serviceProvider.CreateScope();
                 var ruleService = scope.ServiceProvider.GetRequiredService<IRuleService>();
                 var blockService = scope.ServiceProvider.GetRequiredService<IRuleBlockService>();
+                var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+
+                // Check if rules are enabled globally
+                var settings = await settingsService.GetSettingsAsync();
+                if (!settings.AllRulesEnabled)
+                {
+                    _logger.LogInformation("Rules are globally disabled - skipping rule check");
+                    return;
+                }
 
                 // Skip if already blocking
                 if (blockService.IsBlocking)
@@ -112,7 +141,7 @@ namespace com.usagemeter.androidapp.Services
                 var rules = await ruleService.GetRulesAsync();
                 var enabledRules = rules.Where(r => r.IsEnabled).ToList();
 
-                _logger.LogDebug($"Found {enabledRules.Count} enabled rules to check");
+                _logger.LogInformation($"Found {enabledRules.Count} enabled rules to check against {e.AppName}");
 
                 // Check if the launched app is monitored by any rule
                 var relevantRules = enabledRules
@@ -121,11 +150,19 @@ namespace com.usagemeter.androidapp.Services
 
                 if (!relevantRules.Any())
                 {
-                    _logger.LogDebug($"No rules monitoring app: {e.AppName}");
+                    _logger.LogInformation($"✅ No rules monitoring app: {e.AppName} - app launch allowed");
                     return;
                 }
 
-                _logger.LogInformation($"Found {relevantRules.Count} rules monitoring app: {e.AppName}");
+                _logger.LogWarning($"⚠️ Found {relevantRules.Count} rules monitoring app: {e.AppName}");
+
+#if ANDROID
+                // Show notification when rule matches
+                AndroidNotificationHelper.ShowAppLaunchNotification(
+                    $"Rule Match Found!",
+                    $"{relevantRules.Count} rules monitor {e.AppName} - checking usage limits"
+                );
+#endif
 
                 // Check each relevant rule
                 foreach (var rule in relevantRules)
@@ -133,6 +170,7 @@ namespace com.usagemeter.androidapp.Services
                     var shouldTrigger = await CheckAndTriggerRule(rule, ruleService, blockService, e.AppName);
                     if (shouldTrigger)
                     {
+                        _logger.LogCritical($"🔥 RULE TRIGGERED: {rule.Name} for app {e.AppName}");
                         // Only trigger the first matching rule
                         break;
                     }
@@ -141,6 +179,12 @@ namespace com.usagemeter.androidapp.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error handling app launch: {e.AppName}");
+#if ANDROID
+                AndroidNotificationHelper.ShowAppLaunchNotification(
+                    "Rule Monitor Error",
+                    $"Error processing {e.AppName}: {ex.Message}"
+                );
+#endif
             }
         }
 
@@ -148,31 +192,46 @@ namespace com.usagemeter.androidapp.Services
         {
             try
             {
-                _logger.LogDebug($"Checking rule: {rule.Name}");
+                _logger.LogInformation($"🔍 Checking rule: '{rule.Name}' (threshold: {FormatMilliseconds(rule.ThresholdInMilliseconds)})");
 
-                // Check if rule has already been triggered recently (within the last hour to prevent spam)
+                // Check if rule has already been triggered recently (within the last 5 minutes to prevent spam)
                 var timeSinceLastTrigger = DateTime.Now - rule.LastTriggered;
-                if (timeSinceLastTrigger.TotalMinutes < 60)
+                if (timeSinceLastTrigger.TotalMinutes < 5)
                 {
-                    _logger.LogDebug($"Rule '{rule.Name}' triggered recently ({timeSinceLastTrigger.TotalMinutes:F1} minutes ago), skipping");
+                    _logger.LogInformation($"⏭️ Rule '{rule.Name}' triggered recently ({timeSinceLastTrigger.TotalMinutes:F1} minutes ago), skipping");
                     return false;
                 }
 
                 // Get current usage for all apps in this rule
                 var currentUsage = await ruleService.GetCombinedUsageForAppsAsync(rule.SelectedPackages);
 
-                _logger.LogInformation($"Rule '{rule.Name}': Current usage {currentUsage}ms ({FormatMilliseconds(currentUsage)}), Threshold: {rule.ThresholdInMilliseconds}ms ({FormatMilliseconds(rule.ThresholdInMilliseconds)})");
+                _logger.LogWarning($"📊 Rule '{rule.Name}': Current usage {currentUsage}ms ({FormatMilliseconds(currentUsage)}), Threshold: {rule.ThresholdInMilliseconds}ms ({FormatMilliseconds(rule.ThresholdInMilliseconds)})");
+
+#if ANDROID
+                // Show usage comparison notification
+                AndroidNotificationHelper.ShowAppLaunchNotification(
+                    $"Usage Check: {rule.Name}",
+                    $"Used: {FormatMilliseconds(currentUsage)} / Limit: {FormatMilliseconds(rule.ThresholdInMilliseconds)}"
+                );
+#endif
 
                 // Check if threshold is exceeded
                 if (currentUsage >= rule.ThresholdInMilliseconds)
                 {
-                    _logger.LogWarning($"Rule '{rule.Name}' threshold exceeded! Triggering block for app: {launchedAppName}");
+                    _logger.LogCritical($"🚨 THRESHOLD EXCEEDED! Rule '{rule.Name}' triggered for app: {launchedAppName}");
+                    _logger.LogCritical($"🚨 Usage: {FormatMilliseconds(currentUsage)} >= Limit: {FormatMilliseconds(rule.ThresholdInMilliseconds)}");
+
+#if ANDROID
+                    // Show critical notification
+                    AndroidNotificationHelper.ShowRuleTriggeredNotification(rule.Name, launchedAppName);
+#endif
 
                     // Update last triggered time
                     rule.LastTriggered = DateTime.Now;
                     await ruleService.SaveRuleAsync(rule);
 
                     // Trigger the blocking action
+                    _logger.LogCritical($"🔒 Triggering block for rule: {rule.Name}");
                     await blockService.TriggerRuleBlock(rule);
 
                     return true; // Rule was triggered
@@ -180,13 +239,19 @@ namespace com.usagemeter.androidapp.Services
                 else
                 {
                     var remainingTime = rule.ThresholdInMilliseconds - currentUsage;
-                    _logger.LogDebug($"Rule '{rule.Name}' not triggered. Remaining time: {FormatMilliseconds(remainingTime)}");
+                    _logger.LogInformation($"✅ Rule '{rule.Name}' not triggered. Remaining time: {FormatMilliseconds(remainingTime)}");
                     return false;
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error checking rule '{rule.Name}'");
+#if ANDROID
+                AndroidNotificationHelper.ShowAppLaunchNotification(
+                    "Rule Check Error",
+                    $"Error checking rule {rule.Name}: {ex.Message}"
+                );
+#endif
                 return false;
             }
         }

@@ -22,6 +22,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
         private IAppLaunchMonitor? _appLaunchMonitor;
         private static AndroidForegroundService? _instance;
         private CancellationTokenSource? _cancellationTokenSource;
+        private Timer? _keepAliveTimer;
 
         public override IBinder? OnBind(Intent? intent) => null;
 
@@ -33,56 +34,30 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 CreateNotificationChannel();
                 StartForeground(NOTIFICATION_ID, CreateNotification());
 
-                System.Diagnostics.Debug.WriteLine("AndroidForegroundService started");
+                System.Diagnostics.Debug.WriteLine("AndroidForegroundService started - initializing monitoring");
 
-                // Start monitoring in background
+                // Start monitoring immediately
                 _cancellationTokenSource = new CancellationTokenSource();
+
+                // Start keep-alive timer to ensure service stays running
+                _keepAliveTimer = new Timer(KeepAlive, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(5));
+
+                // Initialize services in background
                 Task.Run(async () =>
                 {
                     try
                     {
-                        await Task.Delay(2000); // Wait for services to be ready
-
-                        var app = MauiApplication.Current;
-                        if (app != null)
-                        {
-                            var serviceProvider = IPlatformApplication.Current?.Services;
-                            if (serviceProvider != null)
-                            {
-                                _logger = serviceProvider.GetService<ILogger<AndroidForegroundService>>();
-                                _ruleMonitor = serviceProvider.GetService<RuleMonitorService>();
-                                _appLaunchMonitor = serviceProvider.GetService<IAppLaunchMonitor>();
-
-                                if (_ruleMonitor != null && _appLaunchMonitor != null)
-                                {
-                                    _logger?.LogInformation("Starting enhanced monitoring from foreground service");
-
-                                    // Start the app launch monitor
-                                    await _appLaunchMonitor.StartMonitoringAsync();
-
-                                    // Start the rule monitor
-                                    await _ruleMonitor.StartAsync(_cancellationTokenSource.Token);
-
-                                    // Update notification to show monitoring is active
-                                    UpdateNotification("Enhanced Monitoring Active", "Continuously tracking app usage and enforcing rules");
-                                }
-                                else
-                                {
-                                    _logger?.LogError("Required services not available in foreground service");
-                                    UpdateNotification("Service Error", "Could not start monitoring services");
-                                }
-                            }
-                        }
+                        await InitializeAndStartMonitoring();
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Error in foreground service: {ex}");
+                        System.Diagnostics.Debug.WriteLine($"Error in foreground service initialization: {ex}");
                         _logger?.LogError(ex, "Error in foreground service initialization");
                         UpdateNotification("Service Error", $"Monitoring failed: {ex.Message}");
                     }
                 });
 
-                return StartCommandResult.Sticky;
+                return StartCommandResult.Sticky; // Ensure service restarts if killed
             }
             catch (Exception ex)
             {
@@ -91,16 +66,145 @@ namespace com.usagemeter.androidapp.Platforms.Android
             }
         }
 
+        private async Task InitializeAndStartMonitoring()
+        {
+            try
+            {
+                // Wait for MAUI app to be ready
+                var retries = 0;
+                var maxRetries = 10;
+
+                while (retries < maxRetries)
+                {
+                    var app = MauiApplication.Current;
+                    if (app != null)
+                    {
+                        var serviceProvider = IPlatformApplication.Current?.Services;
+                        if (serviceProvider != null)
+                        {
+                            _logger = serviceProvider.GetService<ILogger<AndroidForegroundService>>();
+                            _ruleMonitor = serviceProvider.GetService<RuleMonitorService>();
+                            _appLaunchMonitor = serviceProvider.GetService<IAppLaunchMonitor>();
+
+                            if (_ruleMonitor != null && _appLaunchMonitor != null)
+                            {
+                                _logger?.LogInformation("Services found - starting enhanced monitoring");
+
+                                // Check if rules are enabled
+                                var settingsService = serviceProvider.GetService<ISettingsService>();
+                                var settings = await settingsService?.GetSettingsAsync()!;
+
+                                if (settings?.AllRulesEnabled == true)
+                                {
+                                    // Start the app launch monitor first
+                                    await _appLaunchMonitor.StartMonitoringAsync();
+                                    _logger?.LogInformation($"App launch monitor started. IsMonitoring: {_appLaunchMonitor.IsMonitoring}");
+
+                                    // Start the rule monitor
+                                    await _ruleMonitor.StartAsync(_cancellationTokenSource?.Token ?? CancellationToken.None);
+                                    _logger?.LogInformation("Rule monitor started");
+
+                                    // Update notification to show monitoring is active
+                                    UpdateNotification("Enhanced Monitoring Active",
+                                        $"Monitoring app launches and enforcing {(await GetActiveRulesCount(serviceProvider))} active rules");
+
+                                    // Show debug notification
+                                    AndroidNotificationHelper.ShowAppLaunchNotification(
+                                        "Background Monitoring Started",
+                                        "Service is now actively monitoring app launches"
+                                    );
+
+                                    return; // Success
+                                }
+                                else
+                                {
+                                    UpdateNotification("Monitoring Disabled", "Rules are disabled in settings");
+                                    _logger?.LogInformation("Rules are disabled - monitoring not started");
+                                    return;
+                                }
+                            }
+                        }
+                    }
+
+                    retries++;
+                    await Task.Delay(2000); // Wait 2 seconds before retry
+                }
+
+                // If we get here, initialization failed
+                _logger?.LogError("Failed to initialize services after maximum retries");
+                UpdateNotification("Initialization Failed", "Could not start monitoring services");
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error in InitializeAndStartMonitoring");
+                UpdateNotification("Service Error", $"Failed to start: {ex.Message}");
+            }
+        }
+
+        private async Task<int> GetActiveRulesCount(IServiceProvider serviceProvider)
+        {
+            try
+            {
+                var ruleService = serviceProvider.GetService<IRuleService>();
+                var rules = await ruleService?.GetRulesAsync()!;
+                return rules?.Count(r => r.IsEnabled) ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private void KeepAlive(object? state)
+        {
+            try
+            {
+                // Update notification periodically to show service is alive
+                var status = _appLaunchMonitor?.IsMonitoring == true ? "Active" : "Inactive";
+                System.Diagnostics.Debug.WriteLine($"KeepAlive check - Monitoring status: {status}");
+
+                // If monitoring stopped unexpectedly, try to restart it
+                if (_appLaunchMonitor?.IsMonitoring != true && _cancellationTokenSource?.Token.IsCancellationRequested != true)
+                {
+                    _logger?.LogWarning("Monitoring stopped unexpectedly - attempting restart");
+                    Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await InitializeAndStartMonitoring();
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger?.LogError(ex, "Error restarting monitoring");
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error in KeepAlive");
+            }
+        }
+
         public override void OnDestroy()
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine("AndroidForegroundService stopping");
+
+                _keepAliveTimer?.Dispose();
                 _cancellationTokenSource?.Cancel();
+
+                // Stop monitoring services
                 _appLaunchMonitor?.StopMonitoringAsync().Wait(5000);
                 _ruleMonitor?.StopAsync().Wait(5000);
+
                 System.Diagnostics.Debug.WriteLine("AndroidForegroundService stopped");
             }
-            catch { }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error in OnDestroy: {ex}");
+            }
 
             _instance = null;
             base.OnDestroy();
@@ -126,7 +230,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
 
         private Notification CreateNotification()
         {
-            return BuildNotification("Usage Meter Active", "Initializing enhanced monitoring...");
+            return BuildNotification("Usage Meter Starting", "Initializing enhanced monitoring...");
         }
 
         private void UpdateNotification(string title, string content)
@@ -167,7 +271,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
             return builder.Build();
         }
 
-        public async Task StartAsync()
+        public static async Task StartAsync()
         {
             try
             {
@@ -221,9 +325,6 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 // Method 2: Show high-priority notification as backup
                 ShowUrgentNotification(context, rule);
 
-                // Method 3: Try to use system alert window if permission available
-                await TryShowSystemOverlay(context, rule);
-
                 System.Diagnostics.Debug.WriteLine("Blocking overlay methods executed");
             }
             catch (Exception ex)
@@ -247,25 +348,6 @@ namespace com.usagemeter.androidapp.Platforms.Android
                     .SetAutoCancel(true)
                     .SetDefaults(NotificationCompat.DefaultAll);
 
-                // Make it urgent
-                if (Build.VERSION.SdkInt >= BuildVersionCodes.O)
-                {
-                    builder.SetChannelId("planapp_urgent_channel");
-
-                    // Create urgent channel
-                    var notificationManager = NotificationManager.FromContext(context);
-                    var urgentChannel = new NotificationChannel(
-                        "planapp_urgent_channel",
-                        "Urgent Alerts",
-                        NotificationImportance.High)
-                    {
-                        Description = "Urgent rule blocking alerts"
-                    };
-                    urgentChannel.EnableVibration(true);
-                    urgentChannel.EnableLights(true);
-                    notificationManager?.CreateNotificationChannel(urgentChannel);
-                }
-
                 // Create full screen intent
                 var fullScreenIntent = new Intent(context, typeof(MainActivity));
                 fullScreenIntent.AddFlags(ActivityFlags.NewTask | ActivityFlags.ClearTop);
@@ -283,46 +365,14 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 builder.SetFullScreenIntent(fullScreenPendingIntent, true);
                 builder.SetContentIntent(fullScreenPendingIntent);
 
-                var notificationManager2 = NotificationManager.FromContext(context);
-                notificationManager2?.Notify(2000 + rule.Id.GetHashCode(), builder.Build());
+                var notificationManager = NotificationManager.FromContext(context);
+                notificationManager?.Notify(2000 + rule.Id.GetHashCode(), builder.Build());
 
                 System.Diagnostics.Debug.WriteLine("Urgent notification shown");
             }
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error showing urgent notification: {ex}");
-            }
-        }
-
-        private static async Task TryShowSystemOverlay(Context context, com.usagemeter.androidapp.Models.AppRule rule)
-        {
-            try
-            {
-                // Check if we have SYSTEM_ALERT_WINDOW permission
-                if (Build.VERSION.SdkInt >= BuildVersionCodes.M)
-                {
-                    if (!global::Android.Provider.Settings.CanDrawOverlays(context))
-                    {
-                        System.Diagnostics.Debug.WriteLine("No system alert window permission");
-                        return;
-                    }
-                }
-
-                // Try to move our task to front
-                var activityManager = context.GetSystemService(Context.ActivityService) as ActivityManager;
-                if (activityManager != null)
-                {
-                    var tasks = activityManager.GetRunningTasks(1);
-                    if (tasks?.Count > 0)
-                    {
-                        activityManager.MoveTaskToFront(tasks[0].Id, 0);
-                        System.Diagnostics.Debug.WriteLine("Moved task to front");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error with system overlay: {ex}");
             }
         }
     }

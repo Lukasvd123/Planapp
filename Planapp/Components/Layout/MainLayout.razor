@@ -9,13 +9,17 @@
 @implements IDisposable
 
 <div class="page">
-    <div class="sidebar @NavMenuCssClass">
+    <div class="sidebar @NavMenuCssClass" @onclick="@(() => _navMenuExpanded = false)">
         <NavMenu />
     </div>
 
     <main class="main-content">
         <div class="top-row px-4">
-            <button class="navbar-toggler" @onclick="ToggleNavMenu" aria-label="Toggle navigation">
+            <!-- ALWAYS show hamburger button on mobile -->
+            <button class="navbar-toggler @(_navMenuExpanded ? "active" : "")" 
+                    @onclick="ToggleNavMenu" 
+                    aria-label="Toggle navigation"
+                    style="display: flex !important;">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <h1 class="page-title">📱 Usage Meter</h1>
@@ -26,6 +30,12 @@
         </article>
     </main>
 </div>
+
+<!-- Backdrop for mobile menu -->
+@if (_navMenuExpanded)
+{
+    <div class="sidebar-backdrop" @onclick="@(() => _navMenuExpanded = false)"></div>
+}
 
 <!-- Rule Blocking Modal -->
 <RuleBlockModal IsVisible="@IsRuleBlocked"
@@ -76,6 +86,7 @@
     private void ToggleNavMenu()
     {
         _navMenuExpanded = !_navMenuExpanded;
+        Logger.LogInformation($"Navigation menu toggled: {_navMenuExpanded}");
         StateHasChanged();
     }
 

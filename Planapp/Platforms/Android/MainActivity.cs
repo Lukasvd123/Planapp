@@ -135,9 +135,8 @@ namespace com.usagemeter.androidapp
                     var settings = await settingsService.GetSettingsAsync();
                     if (settings.AllRulesEnabled)
                     {
-                        // Start foreground service
-                        var foregroundService = new Platforms.Android.AndroidForegroundService();
-                        await foregroundService.StartAsync();
+                        // Start foreground service using static method
+                        await Platforms.Android.AndroidForegroundService.StartAsync();
 
                         System.Diagnostics.Debug.WriteLine("Services initialized successfully");
                     }

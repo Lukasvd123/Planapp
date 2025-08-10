@@ -10,26 +10,10 @@
             <div class="block-header">
                 <div class="block-icon">⏰</div>
                 <h2 class="block-title">Time Limit Reached</h2>
+                <p class="block-subtitle">Rule: @BlockedRule.Name</p>
             </div>
 
             <div class="block-content">
-                <h3 class="rule-name">@BlockedRule.Name</h3>
-                <p class="block-message">
-                    You've reached your daily time limit for the selected apps.
-                    @if (Settings?.BlockingMode == "Timer")
-                    {
-                        <span>Please wait for the countdown to continue.</span>
-                    }
-                    else if (Settings?.BlockingMode == "Instant")
-                    {
-                        <span>The app has been closed to help you maintain healthy usage habits.</span>
-                    }
-                    else
-                    {
-                        <span>Choose how you'd like to proceed.</span>
-                    }
-                </p>
-
                 <div class="usage-summary">
                     <div class="usage-detail">
                         <span class="usage-label">Daily Limit:</span>
@@ -58,10 +42,6 @@
                                 <div class="progress-fill" style="width: @ProgressPercentage%"></div>
                             </div>
                         </div>
-                        @if (Settings?.BlockingMode == "Choice" && !UserChoseWait)
-                        {
-                            <button class="btn-skip" @onclick="SkipTimer">Skip Timer</button>
-                        }
                     </div>
                 }
             </div>
@@ -71,75 +51,80 @@
                 {
                     <h4>What would you like to do?</h4>
 
-                    <button class="btn-block choice" @onclick="ChooseWait">
-                        <span class="btn-icon">⏳</span>
-                        Wait @(Settings.DefaultBlockDurationMinutes)m @(Settings.DefaultBlockDurationSeconds)s
-                    </button>
-
-                    <button class="btn-block choice" @onclick="GoHome">
-                        <span class="btn-icon">🏠</span>
-                        Go to Home Screen
-                    </button>
-
-                    @if (BlockedRule.ActionType == "OpenApp" && !string.IsNullOrEmpty(BlockedRule.TargetAppName))
-                    {
-                        <button class="btn-block choice primary" @onclick="OpenTargetApp">
-                            <span class="btn-icon">🚀</span>
-                            Open @BlockedRule.TargetAppName
+                    <div class="choice-buttons">
+                        <button class="btn-block choice" @onclick="ChooseWait">
+                            <span class="btn-icon">⏳</span>
+                            <span>Wait @(Settings.DefaultBlockDurationMinutes)m @(Settings.DefaultBlockDurationSeconds)s</span>
                         </button>
-                    }
 
-                    <button class="btn-block choice secondary" @onclick="Acknowledge">
-                        <span class="btn-icon">✓</span>
-                        Dismiss (Not Recommended)
-                    </button>
+                        <button class="btn-block choice" @onclick="GoHome">
+                            <span class="btn-icon">🏠</span>
+                            <span>Go to Home Screen</span>
+                        </button>
+
+                        @if (BlockedRule.ActionType == "OpenApp" && !string.IsNullOrEmpty(BlockedRule.TargetAppName))
+                        {
+                            <button class="btn-block choice primary" @onclick="OpenTargetApp">
+                                <span class="btn-icon">🚀</span>
+                                <span>Open @BlockedRule.TargetAppName</span>
+                            </button>
+                        }
+
+                        <button class="btn-block choice secondary" @onclick="Acknowledge">
+                            <span class="btn-icon">✓</span>
+                            <span>Dismiss (Not Recommended)</span>
+                        </button>
+                    </div>
                 }
                 else if (Settings?.BlockingMode == "Timer" || UserChoseWait)
                 {
-                    @if (CountdownSeconds <= 0)
-                    {
-                        <button class="btn-block primary" @onclick="Acknowledge">
-                            <span class="btn-icon">✓</span>
-                            Continue
-                        </button>
-                    }
-                    else
-                    {
-                        <button class="btn-block disabled" disabled>
-                            <span class="btn-icon">⏳</span>
-                            Wait @CountdownText
-                        </button>
-                    }
+                    <div class="timer-buttons">
+                        @if (CountdownSeconds <= 0)
+                        {
+                            <button class="btn-block primary large" @onclick="Acknowledge">
+                                <span class="btn-icon">✓</span>
+                                <span>Continue</span>
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn-block disabled large" disabled>
+                                <span class="btn-icon">⏳</span>
+                                <span>Wait @CountdownText</span>
+                            </button>
+                        }
 
-                    @if (BlockedRule.ActionType == "OpenApp" && !string.IsNullOrEmpty(BlockedRule.TargetAppName))
-                    {
-                        <button class="btn-block secondary" @onclick="OpenTargetApp" disabled="@(CountdownSeconds > 0)">
-                            <span class="btn-icon">🚀</span>
-                            Open @BlockedRule.TargetAppName Instead
-                        </button>
-                    }
+                        @if (BlockedRule.ActionType == "OpenApp" && !string.IsNullOrEmpty(BlockedRule.TargetAppName))
+                        {
+                            <button class="btn-block secondary" @onclick="OpenTargetApp" disabled="@(CountdownSeconds > 0)">
+                                <span class="btn-icon">🚀</span>
+                                <span>Open @BlockedRule.TargetAppName Instead</span>
+                            </button>
+                        }
+                    </div>
                 }
                 else
                 {
-                    <button class="btn-block primary" @onclick="GoHome">
-                        <span class="btn-icon">🏠</span>
-                        Go to Home
-                    </button>
-
-                    @if (BlockedRule.ActionType == "OpenApp" && !string.IsNullOrEmpty(BlockedRule.TargetAppName))
-                    {
-                        <button class="btn-block secondary" @onclick="OpenTargetApp">
-                            <span class="btn-icon">🚀</span>
-                            Open @BlockedRule.TargetAppName
+                    <div class="instant-buttons">
+                        <button class="btn-block primary large" @onclick="GoHome">
+                            <span class="btn-icon">🏠</span>
+                            <span>Go to Home</span>
                         </button>
-                    }
+
+                        @if (BlockedRule.ActionType == "OpenApp" && !string.IsNullOrEmpty(BlockedRule.TargetAppName))
+                        {
+                            <button class="btn-block secondary" @onclick="OpenTargetApp">
+                                <span class="btn-icon">🚀</span>
+                                <span>Open @BlockedRule.TargetAppName</span>
+                            </button>
+                        }
+                    </div>
                 }
             </div>
 
             <div class="block-footer">
                 <p class="footer-text">
-                    💡 Tip: Taking breaks from apps helps maintain healthy digital habits.
-                    You can modify these settings in the Settings menu.
+                    💡 Taking breaks helps maintain healthy digital habits
                 </p>
             </div>
         </div>
@@ -228,13 +213,6 @@
                 InvokeAsync(StateHasChanged);
             }
         }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-    }
-
-    private void SkipTimer()
-    {
-        CountdownSeconds = 0;
-        CountdownTimer?.Dispose();
-        StateHasChanged();
     }
 
     private async Task GoHome()
