@@ -23,6 +23,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
         private static AndroidForegroundService? _instance;
         private CancellationTokenSource? _cancellationTokenSource;
         private Timer? _keepAliveTimer;
+        private Timer? _healthCheckTimer;
 
         public override IBinder? OnBind(Intent? intent) => null;
 
@@ -34,13 +35,15 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 CreateNotificationChannel();
                 StartForeground(NOTIFICATION_ID, CreateNotification());
 
-                System.Diagnostics.Debug.WriteLine("AndroidForegroundService started - initializing monitoring");
+                System.Diagnostics.Debug.WriteLine("AndroidForegroundService started - initializing enhanced monitoring");
 
-                // Start monitoring immediately
                 _cancellationTokenSource = new CancellationTokenSource();
 
-                // Start keep-alive timer to ensure service stays running
-                _keepAliveTimer = new Timer(KeepAlive, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(5));
+                // Start keep-alive timer
+                _keepAliveTimer = new Timer(KeepAlive, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(2));
+
+                // Start health check timer
+                _healthCheckTimer = new Timer(HealthCheck, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
 
                 // Initialize services in background
                 Task.Run(async () =>
@@ -70,9 +73,8 @@ namespace com.usagemeter.androidapp.Platforms.Android
         {
             try
             {
-                // Wait for MAUI app to be ready
                 var retries = 0;
-                var maxRetries = 10;
+                var maxRetries = 15; // Increased retries
 
                 while (retries < maxRetries)
                 {
@@ -90,28 +92,25 @@ namespace com.usagemeter.androidapp.Platforms.Android
                             {
                                 _logger?.LogInformation("Services found - starting enhanced monitoring");
 
-                                // Check if rules are enabled
                                 var settingsService = serviceProvider.GetService<ISettingsService>();
                                 var settings = await settingsService?.GetSettingsAsync()!;
 
                                 if (settings?.AllRulesEnabled == true)
                                 {
-                                    // Start the app launch monitor first
+                                    // Start both monitoring services
                                     await _appLaunchMonitor.StartMonitoringAsync();
                                     _logger?.LogInformation($"App launch monitor started. IsMonitoring: {_appLaunchMonitor.IsMonitoring}");
 
-                                    // Start the rule monitor
                                     await _ruleMonitor.StartAsync(_cancellationTokenSource?.Token ?? CancellationToken.None);
-                                    _logger?.LogInformation("Rule monitor started");
+                                    _logger?.LogInformation("Enhanced rule monitor started");
 
-                                    // Update notification to show monitoring is active
+                                    var activeRulesCount = await GetActiveRulesCount(serviceProvider);
                                     UpdateNotification("Enhanced Monitoring Active",
-                                        $"Monitoring app launches and enforcing {(await GetActiveRulesCount(serviceProvider))} active rules");
+                                        $"Monitoring launches + usage for {activeRulesCount} active rules");
 
-                                    // Show debug notification
                                     AndroidNotificationHelper.ShowAppLaunchNotification(
-                                        "Background Monitoring Started",
-                                        "Service is now actively monitoring app launches"
+                                        "Enhanced Background Service Started",
+                                        "Service actively monitoring app launches and usage limits"
                                     );
 
                                     return; // Success
@@ -127,10 +126,9 @@ namespace com.usagemeter.androidapp.Platforms.Android
                     }
 
                     retries++;
-                    await Task.Delay(2000); // Wait 2 seconds before retry
+                    await Task.Delay(3000); // Wait 3 seconds before retry
                 }
 
-                // If we get here, initialization failed
                 _logger?.LogError("Failed to initialize services after maximum retries");
                 UpdateNotification("Initialization Failed", "Could not start monitoring services");
             }
@@ -159,14 +157,19 @@ namespace com.usagemeter.androidapp.Platforms.Android
         {
             try
             {
-                // Update notification periodically to show service is alive
-                var status = _appLaunchMonitor?.IsMonitoring == true ? "Active" : "Inactive";
-                System.Diagnostics.Debug.WriteLine($"KeepAlive check - Monitoring status: {status}");
+                var launchStatus = _appLaunchMonitor?.IsMonitoring == true ? "✅ Active" : "❌ Inactive";
+                var ruleStatus = _ruleMonitor != null ? "✅ Running" : "❌ Stopped";
+
+                System.Diagnostics.Debug.WriteLine($"KeepAlive - Launch Monitor: {launchStatus}, Rule Monitor: {ruleStatus}");
+
+                // Update notification with current status
+                UpdateNotification("Enhanced Monitoring Active",
+                    $"Launch Monitor: {launchStatus} | Rule Monitor: {ruleStatus}");
 
                 // If monitoring stopped unexpectedly, try to restart it
                 if (_appLaunchMonitor?.IsMonitoring != true && _cancellationTokenSource?.Token.IsCancellationRequested != true)
                 {
-                    _logger?.LogWarning("Monitoring stopped unexpectedly - attempting restart");
+                    _logger?.LogWarning("Launch monitoring stopped unexpectedly - attempting restart");
                     Task.Run(async () =>
                     {
                         try
@@ -186,6 +189,34 @@ namespace com.usagemeter.androidapp.Platforms.Android
             }
         }
 
+        private void HealthCheck(object? state)
+        {
+            try
+            {
+                // Check if services are still responsive
+                var isHealthy = _appLaunchMonitor?.IsMonitoring == true && _ruleMonitor != null;
+
+                if (!isHealthy)
+                {
+                    _logger?.LogWarning("Health check failed - services may be unresponsive");
+
+                    // Show notification about health issue
+                    AndroidNotificationHelper.ShowAppLaunchNotification(
+                        "Service Health Warning",
+                        "Monitoring services may need restart - check app"
+                    );
+                }
+                else
+                {
+                    _logger?.LogDebug("Health check passed - all services responsive");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError(ex, "Error in health check");
+            }
+        }
+
         public override void OnDestroy()
         {
             try
@@ -193,6 +224,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 System.Diagnostics.Debug.WriteLine("AndroidForegroundService stopping");
 
                 _keepAliveTimer?.Dispose();
+                _healthCheckTimer?.Dispose();
                 _cancellationTokenSource?.Cancel();
 
                 // Stop monitoring services
@@ -218,10 +250,10 @@ namespace com.usagemeter.androidapp.Platforms.Android
 
                 var channel = new NotificationChannel(
                     CHANNEL_ID,
-                    "Usage Monitoring",
+                    "Enhanced Usage Monitoring",
                     NotificationImportance.Low)
                 {
-                    Description = "Monitors app usage in background"
+                    Description = "Monitors app usage and enforces rules in background"
                 };
 
                 notificationManager?.CreateNotificationChannel(channel);
@@ -254,7 +286,8 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 .SetContentText(content)
                 .SetSmallIcon(global::Android.Resource.Drawable.IcDialogInfo)
                 .SetOngoing(true)
-                .SetPriority(NotificationCompat.PriorityLow);
+                .SetPriority(NotificationCompat.PriorityLow)
+                .SetStyle(new NotificationCompat.BigTextStyle().BigText(content));
 
             // Create intent to open app when notification is tapped
             var intent = new Intent(this, typeof(MainActivity));
@@ -276,7 +309,11 @@ namespace com.usagemeter.androidapp.Platforms.Android
             try
             {
                 var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
-                if (context == null) return;
+                if (context == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("Cannot start service - no context");
+                    return;
+                }
 
                 var intent = new Intent(context, typeof(AndroidForegroundService));
 

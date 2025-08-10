@@ -1,4 +1,11 @@
-/* Mobile-first approach with FORCED hamburger visibility */
+﻿/* NUCLEAR NAVBAR CSS - ABSOLUTELY FORCE VISIBLE */
+
+/* Reset everything */
+* {
+    box-sizing: border-box;
+}
+
+/* Basic Layout */
 .page {
     position: relative;
     display: flex;
@@ -15,184 +22,192 @@
 }
 
 .top-row {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 0.75rem 1rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    min-height: 60px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    position: relative;
-    z-index: 1001;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
+    padding: 0.75rem 1rem !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 1rem !important;
+    min-height: 60px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+    position: relative !important;
+    z-index: 1001 !important;
 }
 
 .page-title {
-    margin: 0;
-    font-size: 1.2rem;
-    font-weight: 600;
-    flex: 1;
-    text-align: center;
+    margin: 0 !important;
+    font-size: 1.2rem !important;
+    font-weight: 600 !important;
+    flex: 1 !important;
+    text-align: center !important;
 }
 
-/* FORCE hamburger to show on ALL screens - CRITICAL FIX */
-.navbar-toggler {
-    background: rgba(255, 255, 255, 0.2) !important;
-    border: 2px solid rgba(255, 255, 255, 0.5) !important;
+/* NUCLEAR HAMBURGER MENU - IMPOSSIBLE TO HIDE */
+.navbar-toggler,
+button.navbar-toggler,
+.top-row .navbar-toggler,
+.top-row button.navbar-toggler,
+*[class*="navbar"] .navbar-toggler,
+*[class*="toggle"] .navbar-toggler,
+.navbar-toggler[style],
+.navbar-toggler[hidden],
+.navbar-toggler[style*="display"],
+.navbar-toggler[style*="visibility"],
+.navbar-toggler[style*="opacity"] {
+    /* FORCE DISPLAY */
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    /* FORCE POSITION */
+    position: relative !important;
+    z-index: 99999 !important;
+    /* FORCE SIZE & STYLE */
+    width: 50px !important;
+    height: 50px !important;
+    min-width: 50px !important;
+    min-height: 50px !important;
+    /* FORCE COLORS - VERY VISIBLE */
+    background: #ff0000 !important; /* BRIGHT RED */
+    border: 3px solid #ffffff !important; /* WHITE BORDER */
     border-radius: 8px !important;
+    /* FORCE LAYOUT */
     padding: 0.5rem !important;
     cursor: pointer !important;
-    display: flex !important; /* FORCE SHOW ALWAYS */
-    visibility: visible !important; /* FORCE VISIBLE */
-    opacity: 1 !important; /* FORCE OPAQUE */
     align-items: center !important;
     justify-content: center !important;
-    width: 44px !important;
-    height: 44px !important;
-    transition: all 0.2s ease !important;
     order: -1 !important;
     flex-shrink: 0 !important;
-    -webkit-tap-highlight-color: transparent !important;
-    position: relative !important;
-    z-index: 9999 !important;
+    /* FORCE BEHAVIOR */
+    pointer-events: all !important;
+    user-select: none !important;
+    /* ANIMATIONS */
+    transition: all 0.2s ease !important;
+    transform: scale(1) !important;
 }
 
+    /* MEGA OVERRIDE - Nuclear option */
+    .navbar-toggler[style*="display: none"] {
+        display: flex !important;
+    }
+
+    .navbar-toggler[style*="visibility: hidden"] {
+        visibility: visible !important;
+    }
+
+    .navbar-toggler[style*="opacity: 0"] {
+        opacity: 1 !important;
+    }
+
+    /* Hamburger Icon - FORCE VISIBLE */
+    .navbar-toggler-icon,
+    .navbar-toggler .navbar-toggler-icon,
+    .navbar-toggler > .navbar-toggler-icon,
+    .navbar-toggler span,
+    .navbar-toggler > span {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        width: 30px !important;
+        height: 20px !important;
+        /* WHITE BARS ON RED BACKGROUND */
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 1%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='3' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
+        background-repeat: no-repeat !important;
+        background-position: center !important;
+        background-size: 100% !important;
+        background-color: transparent !important;
+    }
+
+    /* Hover effects */
     .navbar-toggler:hover,
     .navbar-toggler:focus,
     .navbar-toggler.active {
-        background: rgba(255, 255, 255, 0.3) !important;
-        border-color: rgba(255, 255, 255, 0.8) !important;
+        background: #cc0000 !important; /* DARKER RED */
+        border-color: #ffffff !important;
         outline: none !important;
-        transform: scale(1.05) !important;
+        transform: scale(1.1) !important;
+        box-shadow: 0 0 10px rgba(255,255,255,0.5) !important;
     }
 
-.navbar-toggler-icon {
-    display: block !important;
-    width: 24px !important;
-    height: 18px !important;
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.9%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
-    background-repeat: no-repeat !important;
-    background-position: center !important;
-    background-size: 100% !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-}
-
+/* Content area */
 .content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 1rem;
-    background: #f8f9fa;
+    flex: 1 !important;
+    overflow-y: auto !important;
+    padding: 1rem !important;
+    background: #f8f9fa !important;
 }
 
-/* Mobile sidebar - hidden by default */
+/* Mobile sidebar */
 .sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 300px;
-    height: 100vh;
-    background: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
-    z-index: 1002; /* Above top-row */
-    box-shadow: 4px 0 20px rgba(0,0,0,0.3);
-    overflow-y: auto;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 300px !important;
+    height: 100vh !important;
+    background: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%) !important;
+    transform: translateX(-100%) !important;
+    transition: transform 0.3s ease !important;
+    z-index: 1002 !important;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.3) !important;
+    overflow-y: auto !important;
 }
 
     .sidebar.show {
-        transform: translateX(0);
+        transform: translateX(0) !important;
     }
 
-/* Backdrop for mobile */
+/* Backdrop */
 .sidebar-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 1001;
-    backdrop-filter: blur(2px);
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    z-index: 1001 !important;
+    backdrop-filter: blur(2px) !important;
 }
 
-/* Desktop styles - STILL SHOW HAMBURGER */
+/* Desktop layout - STILL SHOW HAMBURGER */
 @media (min-width: 1024px) {
     .page {
-        flex-direction: row;
+        flex-direction: row !important;
     }
 
     .sidebar {
-        position: static;
-        transform: translateX(0);
-        width: 280px;
-        box-shadow: none;
-        z-index: auto;
+        position: static !important;
+        transform: translateX(0) !important;
+        width: 280px !important;
+        box-shadow: none !important;
+        z-index: auto !important;
     }
 
     .sidebar-backdrop {
-        display: none;
+        display: none !important;
     }
 
-    /* KEEP hamburger visible even on desktop for consistency */
+    /* FORCE HAMBURGER VISIBLE ON DESKTOP TOO */
     .navbar-toggler {
         display: flex !important;
         visibility: visible !important;
+        opacity: 1 !important;
     }
 
     .top-row {
-        justify-content: flex-start; /* Changed from center */
+        justify-content: flex-start !important;
     }
 
     .page-title {
-        text-align: left; /* Changed from center */
-        margin-left: 1rem;
-    }
-
-    .main-content {
-        flex: 1;
+        text-align: left !important;
+        margin-left: 1rem !important;
     }
 }
 
-/* Tablet styles */
+/* Tablet - FORCE HAMBURGER */
 @media (min-width: 768px) and (max-width: 1023px) {
     .sidebar {
-        width: 320px;
+        width: 320px !important;
     }
 
-    .navbar-toggler {
-        display: flex !important;
-        visibility: visible !important;
-    }
-}
-
-/* Small mobile styles */
-@media (max-width: 480px) {
-    .content {
-        padding: 0.5rem;
-    }
-
-    .top-row {
-        min-height: 56px;
-        padding: 0.5rem 1rem;
-    }
-
-    .page-title {
-        font-size: 1.1rem;
-    }
-
-    .sidebar {
-        width: 280px;
-    }
-
-    .navbar-toggler {
-        width: 40px !important;
-        height: 40px !important;
-    }
-}
-
-/* FORCE hamburger visibility on ALL screen sizes */
-@media (max-width: 2560px) {
     .navbar-toggler {
         display: flex !important;
         visibility: visible !important;
@@ -200,41 +215,98 @@
     }
 }
 
-/* High contrast for better visibility */
+/* Small mobile - FORCE HAMBURGER */
+@media (max-width: 480px) {
+    .content {
+        padding: 0.5rem !important;
+    }
+
+    .top-row {
+        min-height: 56px !important;
+        padding: 0.5rem 1rem !important;
+    }
+
+    .page-title {
+        font-size: 1.1rem !important;
+    }
+
+    .sidebar {
+        width: 280px !important;
+    }
+
+    .navbar-toggler {
+        width: 45px !important;
+        height: 45px !important;
+    }
+}
+
+/* ULTIMATE NUCLEAR OVERRIDES */
+html .navbar-toggler,
+body .navbar-toggler,
+div .navbar-toggler,
+main .navbar-toggler,
+section .navbar-toggler,
+article .navbar-toggler,
+header .navbar-toggler,
+nav .navbar-toggler {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    background: red !important;
+}
+
+/* Framework overrides */
+.blazor-component .navbar-toggler,
+.maui-blazor .navbar-toggler,
+.maui-app .navbar-toggler {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* Accessibility & High contrast */
 @media (prefers-contrast: high) {
     .navbar-toggler {
         border-color: white !important;
-        background: rgba(255, 255, 255, 0.3) !important;
+        background: red !important;
+        box-shadow: 0 0 0 2px white !important;
     }
 }
 
-/* Accessibility improvements */
 .navbar-toggler:focus-visible {
-    outline: 2px solid white !important;
+    outline: 3px solid white !important;
     outline-offset: 2px !important;
 }
 
-/* Touch improvements for mobile */
+/* Touch improvements */
 @media (pointer: coarse) {
     .navbar-toggler {
-        min-width: 48px !important;
-        min-height: 48px !important;
+        min-width: 50px !important;
+        min-height: 50px !important;
+        touch-action: manipulation !important;
     }
 }
 
-/* Ensure hamburger works with any CSS framework overrides */
-.navbar-toggler[style] {
-    display: flex !important;
-    visibility: visible !important;
+/* Print media - still show */
+@media print {
+    .navbar-toggler {
+        display: flex !important;
+        visibility: visible !important;
+    }
 }
 
-/* Additional fallback styles */
-button.navbar-toggler {
-    display: flex !important;
-    visibility: visible !important;
-}
-
-.top-row .navbar-toggler {
-    display: flex !important;
-    visibility: visible !important;
+/* FINAL NUCLEAR OPTION - If NOTHING else works */
+.top-row::before {
+    content: "☰";
+    position: absolute !important;
+    left: 10px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    font-size: 2rem !important;
+    color: white !important;
+    background: red !important;
+    padding: 0.5rem !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    z-index: 99999 !important;
 }

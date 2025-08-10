@@ -212,6 +212,44 @@ namespace com.usagemeter.androidapp.Services
                 _logger.LogError(ex, "Error bringing app to foreground");
             }
         }
+
+        private async Task<string?> GetCurrentForegroundApp()
+        {
+            try
+            {
+                var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
+                if (context == null) return null;
+
+                var usageStatsManager = context.GetSystemService(Android.Content.Context.UsageStatsService)
+                    as Android.App.Usage.UsageStatsManager;
+                if (usageStatsManager == null) return null;
+
+                var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
+                var startTime = endTime - 10000; // Last 10 seconds
+
+                var usageEvents = usageStatsManager.QueryEvents(startTime, endTime);
+                string? currentApp = null;
+
+                while (usageEvents.HasNextEvent)
+                {
+                    var eventObj = new Android.App.Usage.UsageEvents.Event();
+                    usageEvents.GetNextEvent(eventObj);
+
+                    // Use the correct enum value
+                    if (eventObj.EventType == Android.App.Usage.UsageEventType.ActivityResumed)
+                    {
+                        currentApp = eventObj.PackageName;
+                    }
+                }
+
+                return currentApp;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting current foreground app");
+                return null;
+            }
+        }
 #endif
 
         private async Task KillCurrentForegroundApp()
@@ -231,37 +269,16 @@ namespace com.usagemeter.androidapp.Services
                 // Method 1: Try to get the current foreground app and force stop it
                 try
                 {
-                    var usageStatsManager = context.GetSystemService(Context.UsageStatsService) as Android.App.Usage.UsageStatsManager;
-                    if (usageStatsManager != null)
+                    var currentApp = await GetCurrentForegroundApp();
+                    if (!string.IsNullOrEmpty(currentApp) && currentApp != context.PackageName)
                     {
-                        var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
-                        var startTime = endTime - 10000; // Last 10 seconds
+                        _logger.LogInformation($"Attempting to close current foreground app: {currentApp}");
 
-                        var usageEvents = usageStatsManager.QueryEvents(startTime, endTime);
-                        string? currentApp = null;
-
-                        // Find the most recent app that was brought to foreground
-                        while (usageEvents.HasNextEvent)
-                        {
-                            var eventObj = new Android.App.Usage.UsageEvents.Event();
-                            usageEvents.GetNextEvent(eventObj);
-
-                            if (eventObj.EventType == Android.App.Usage.UsageEvents.Event.ActivityResumed)
-                            {
-                                currentApp = eventObj.PackageName;
-                            }
-                        }
-
-                        if (!string.IsNullOrEmpty(currentApp) && currentApp != context.PackageName)
-                        {
-                            _logger.LogInformation($"Attempting to close current foreground app: {currentApp}");
-
-                            // Force the app to background by launching home
-                            var homeIntent = new Intent(Intent.ActionMain);
-                            homeIntent.AddCategory(Intent.CategoryHome);
-                            homeIntent.SetFlags(ActivityFlags.NewTask | ActivityFlags.ReorderToFront);
-                            context.StartActivity(homeIntent);
-                        }
+                        // Force the app to background by launching home
+                        var homeIntent = new Intent(Intent.ActionMain);
+                        homeIntent.AddCategory(Intent.CategoryHome);
+                        homeIntent.SetFlags(ActivityFlags.NewTask | ActivityFlags.ReorderToFront);
+                        context.StartActivity(homeIntent);
                     }
                 }
                 catch (Exception ex)

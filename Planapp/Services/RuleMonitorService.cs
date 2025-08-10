@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,6 +9,9 @@ using com.usagemeter.androidapp.Models;
 
 #if ANDROID
 using com.usagemeter.androidapp.Platforms.Android;
+using Android.App.Usage;
+using Android.Content;
+using AndroidApp = Android.App.Application;
 #endif
 
 namespace com.usagemeter.androidapp.Services
@@ -16,9 +20,10 @@ namespace com.usagemeter.androidapp.Services
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<RuleMonitorService> _logger;
-        private IAppLaunchMonitor? _appLaunchMonitor;
         private bool _isRunning = false;
         private readonly object _lockObject = new object();
+        private Timer? _periodicCheckTimer;
+        private CancellationTokenSource? _cancellationTokenSource;
 
         public RuleMonitorService(IServiceProvider serviceProvider, ILogger<RuleMonitorService> logger)
         {
@@ -40,10 +45,12 @@ namespace com.usagemeter.androidapp.Services
 
             try
             {
-                _logger.LogInformation("Starting rule monitoring service...");
+                _logger.LogInformation("Starting rule monitoring service (NO COOLDOWNS)...");
+
+                _cancellationTokenSource = new CancellationTokenSource();
 
                 // Get app launch monitor from DI
-                _appLaunchMonitor = _serviceProvider.GetRequiredService<IAppLaunchMonitor>();
+                var _appLaunchMonitor = _serviceProvider.GetRequiredService<IAppLaunchMonitor>();
 
                 // Subscribe to app launch events
                 _appLaunchMonitor.AppLaunched += OnAppLaunched;
@@ -51,13 +58,20 @@ namespace com.usagemeter.androidapp.Services
                 // Start monitoring app launches
                 await _appLaunchMonitor.StartMonitoringAsync();
 
-                _logger.LogInformation($"Rule monitoring service started successfully - listening for app launches. IsMonitoring: {_appLaunchMonitor.IsMonitoring}");
+                // Start aggressive periodic checking (every 10 seconds)
+                _periodicCheckTimer = new Timer(
+                    async _ => await PeriodicRuleCheck(),
+                    null,
+                    TimeSpan.FromSeconds(5),  // Start after 5 seconds
+                    TimeSpan.FromSeconds(10)  // Check every 10 seconds
+                );
+
+                _logger.LogInformation($"Rule monitoring started - Launch monitor: {_appLaunchMonitor.IsMonitoring}");
 
 #if ANDROID
-                // Show debug notification
                 AndroidNotificationHelper.ShowAppLaunchNotification(
-                    "Rule Monitor Started",
-                    "Now monitoring app launches for rule triggers"
+                    "Rule Monitor Started (No Cooldowns)",
+                    "Aggressive monitoring - rules will trigger repeatedly"
                 );
 #endif
             }
@@ -88,18 +102,70 @@ namespace com.usagemeter.androidapp.Services
             {
                 _logger.LogInformation("Stopping rule monitoring service...");
 
-                if (_appLaunchMonitor != null)
-                {
-                    _appLaunchMonitor.AppLaunched -= OnAppLaunched;
-                    await _appLaunchMonitor.StopMonitoringAsync();
-                    _appLaunchMonitor = null;
-                }
+                _cancellationTokenSource?.Cancel();
+                _periodicCheckTimer?.Dispose();
 
                 _logger.LogInformation("Rule monitoring service stopped successfully");
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error stopping rule monitoring service");
+            }
+        }
+
+        private async Task PeriodicRuleCheck()
+        {
+            if (!_isRunning) return;
+
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var ruleService = scope.ServiceProvider.GetRequiredService<IRuleService>();
+                var blockService = scope.ServiceProvider.GetRequiredService<IRuleBlockService>();
+                var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+
+                var settings = await settingsService.GetSettingsAsync();
+                if (!settings.AllRulesEnabled)
+                {
+                    _logger.LogDebug("Rules disabled, skipping periodic check");
+                    return;
+                }
+
+                if (blockService.IsBlocking)
+                {
+                    _logger.LogDebug("Already blocking, skipping periodic check");
+                    return;
+                }
+
+                var rules = await ruleService.GetRulesAsync();
+                var enabledRules = rules.Where(r => r.IsEnabled).ToList();
+
+                _logger.LogDebug($"Periodic check: {enabledRules.Count} enabled rules");
+
+                foreach (var rule in enabledRules)
+                {
+                    var currentUsage = await ruleService.GetCombinedUsageForAppsAsync(rule.SelectedPackages);
+
+                    if (currentUsage >= rule.ThresholdInMilliseconds)
+                    {
+                        _logger.LogWarning($"⏰ PERIODIC TRIGGER: Rule '{rule.Name}' exceeded threshold ({FormatTime(currentUsage)} >= {FormatTime(rule.ThresholdInMilliseconds)})");
+
+#if ANDROID
+                        AndroidNotificationHelper.ShowRuleTriggeredNotification(
+                            rule.Name,
+                            $"Periodic trigger - {FormatTime(currentUsage)} used"
+                        );
+#endif
+
+                        // NO COOLDOWN CHECK - trigger immediately
+                        await blockService.TriggerRuleBlock(rule);
+                        break; // Only trigger one rule at a time
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during periodic rule check");
             }
         }
 
@@ -110,10 +176,9 @@ namespace com.usagemeter.androidapp.Services
                 _logger.LogInformation($"🚀 APP LAUNCHED: {e.AppName} ({e.PackageName}) at {e.LaunchedAt:HH:mm:ss}");
 
 #if ANDROID
-                // Show debug notification for every app launch
                 AndroidNotificationHelper.ShowAppLaunchNotification(
                     $"App Launched: {e.AppName}",
-                    $"Checking rules for {e.PackageName} at {e.LaunchedAt:HH:mm:ss}"
+                    $"Checking rules for {e.PackageName} - NO COOLDOWNS"
                 );
 #endif
 
@@ -122,7 +187,6 @@ namespace com.usagemeter.androidapp.Services
                 var blockService = scope.ServiceProvider.GetRequiredService<IRuleBlockService>();
                 var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
 
-                // Check if rules are enabled globally
                 var settings = await settingsService.GetSettingsAsync();
                 if (!settings.AllRulesEnabled)
                 {
@@ -130,20 +194,17 @@ namespace com.usagemeter.androidapp.Services
                     return;
                 }
 
-                // Skip if already blocking
                 if (blockService.IsBlocking)
                 {
                     _logger.LogInformation("Rule block already active, skipping new app launch");
                     return;
                 }
 
-                // Get all enabled rules
                 var rules = await ruleService.GetRulesAsync();
                 var enabledRules = rules.Where(r => r.IsEnabled).ToList();
 
                 _logger.LogInformation($"Found {enabledRules.Count} enabled rules to check against {e.AppName}");
 
-                // Check if the launched app is monitored by any rule
                 var relevantRules = enabledRules
                     .Where(rule => rule.SelectedPackages.Contains(e.PackageName))
                     .ToList();
@@ -157,21 +218,18 @@ namespace com.usagemeter.androidapp.Services
                 _logger.LogWarning($"⚠️ Found {relevantRules.Count} rules monitoring app: {e.AppName}");
 
 #if ANDROID
-                // Show notification when rule matches
                 AndroidNotificationHelper.ShowAppLaunchNotification(
                     $"Rule Match Found!",
-                    $"{relevantRules.Count} rules monitor {e.AppName} - checking usage limits"
+                    $"{relevantRules.Count} rules monitor {e.AppName} - checking limits NOW"
                 );
 #endif
 
-                // Check each relevant rule
                 foreach (var rule in relevantRules)
                 {
                     var shouldTrigger = await CheckAndTriggerRule(rule, ruleService, blockService, e.AppName);
                     if (shouldTrigger)
                     {
                         _logger.LogCritical($"🔥 RULE TRIGGERED: {rule.Name} for app {e.AppName}");
-                        // Only trigger the first matching rule
                         break;
                     }
                 }
@@ -192,54 +250,40 @@ namespace com.usagemeter.androidapp.Services
         {
             try
             {
-                _logger.LogInformation($"🔍 Checking rule: '{rule.Name}' (threshold: {FormatMilliseconds(rule.ThresholdInMilliseconds)})");
+                _logger.LogInformation($"🔍 Checking rule: '{rule.Name}' (threshold: {FormatTime(rule.ThresholdInMilliseconds)})");
 
-                // Check if rule has already been triggered recently (within the last 5 minutes to prevent spam)
-                var timeSinceLastTrigger = DateTime.Now - rule.LastTriggered;
-                if (timeSinceLastTrigger.TotalMinutes < 5)
-                {
-                    _logger.LogInformation($"⏭️ Rule '{rule.Name}' triggered recently ({timeSinceLastTrigger.TotalMinutes:F1} minutes ago), skipping");
-                    return false;
-                }
+                // NO COOLDOWN CHECK - Always check the rule
 
-                // Get current usage for all apps in this rule
                 var currentUsage = await ruleService.GetCombinedUsageForAppsAsync(rule.SelectedPackages);
 
-                _logger.LogWarning($"📊 Rule '{rule.Name}': Current usage {currentUsage}ms ({FormatMilliseconds(currentUsage)}), Threshold: {rule.ThresholdInMilliseconds}ms ({FormatMilliseconds(rule.ThresholdInMilliseconds)})");
+                _logger.LogWarning($"📊 Rule '{rule.Name}': Current usage {currentUsage}ms ({FormatTime(currentUsage)}), Threshold: {rule.ThresholdInMilliseconds}ms ({FormatTime(rule.ThresholdInMilliseconds)})");
 
 #if ANDROID
-                // Show usage comparison notification
                 AndroidNotificationHelper.ShowAppLaunchNotification(
                     $"Usage Check: {rule.Name}",
-                    $"Used: {FormatMilliseconds(currentUsage)} / Limit: {FormatMilliseconds(rule.ThresholdInMilliseconds)}"
+                    $"Used: {FormatTime(currentUsage)} / Limit: {FormatTime(rule.ThresholdInMilliseconds)}"
                 );
 #endif
 
-                // Check if threshold is exceeded
                 if (currentUsage >= rule.ThresholdInMilliseconds)
                 {
                     _logger.LogCritical($"🚨 THRESHOLD EXCEEDED! Rule '{rule.Name}' triggered for app: {launchedAppName}");
-                    _logger.LogCritical($"🚨 Usage: {FormatMilliseconds(currentUsage)} >= Limit: {FormatMilliseconds(rule.ThresholdInMilliseconds)}");
+                    _logger.LogCritical($"🚨 Usage: {FormatTime(currentUsage)} >= Limit: {FormatTime(rule.ThresholdInMilliseconds)}");
 
 #if ANDROID
-                    // Show critical notification
                     AndroidNotificationHelper.ShowRuleTriggeredNotification(rule.Name, launchedAppName);
 #endif
 
-                    // Update last triggered time
-                    rule.LastTriggered = DateTime.Now;
-                    await ruleService.SaveRuleAsync(rule);
-
-                    // Trigger the blocking action
-                    _logger.LogCritical($"🔒 Triggering block for rule: {rule.Name}");
+                    // NO COOLDOWN UPDATE - Always trigger
+                    _logger.LogCritical($"🔒 Triggering block for rule: {rule.Name} (NO COOLDOWN)");
                     await blockService.TriggerRuleBlock(rule);
 
-                    return true; // Rule was triggered
+                    return true;
                 }
                 else
                 {
                     var remainingTime = rule.ThresholdInMilliseconds - currentUsage;
-                    _logger.LogInformation($"✅ Rule '{rule.Name}' not triggered. Remaining time: {FormatMilliseconds(remainingTime)}");
+                    _logger.LogInformation($"✅ Rule '{rule.Name}' not triggered. Remaining time: {FormatTime(remainingTime)}");
                     return false;
                 }
             }
@@ -256,7 +300,7 @@ namespace com.usagemeter.androidapp.Services
             }
         }
 
-        private string FormatMilliseconds(long milliseconds)
+        private string FormatTime(long milliseconds)
         {
             var timeSpan = TimeSpan.FromMilliseconds(milliseconds);
 
