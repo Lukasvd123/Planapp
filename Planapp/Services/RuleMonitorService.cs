@@ -4,9 +4,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Planapp.Models;
+using com.usagemeter.androidapp.Models;
 
-namespace Planapp.Services
+namespace com.usagemeter.androidapp.Services
 {
     public class RuleMonitorService
     {

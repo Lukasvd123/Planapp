@@ -4,9 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Planapp.Models;
+using com.usagemeter.androidapp.Models;
 
-namespace Planapp.Services
+namespace com.usagemeter.androidapp.Services
 {
     public class DefaultRuleService : IRuleService
     {

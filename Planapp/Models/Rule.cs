@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace Planapp.Models
+namespace com.usagemeter.androidapp.Models
 {
     public class AppRule
     {

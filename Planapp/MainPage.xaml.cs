@@ -1,4 +1,4 @@
-﻿namespace Planapp
+﻿namespace com.usagemeter.androidapp
 {
     public partial class MainPage : ContentPage
     {

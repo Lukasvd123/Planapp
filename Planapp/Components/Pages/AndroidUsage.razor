@@ -1,5 +1,5 @@
 ﻿@page "/android-usage"
-@inject Planapp.Services.IUsageStatsService UsageStatsService
+@inject com.usagemeter.androidapp.Services.IUsageStatsService UsageStatsService
 @inject IJSRuntime JSRuntime
 @using Microsoft.AspNetCore.Components.Rendering
 @using System.Collections.Concurrent
@@ -148,8 +148,8 @@ else
 }
 
 @code {
-    private List<Planapp.Services.AppUsageInfo>? AppUsages;
-    private List<Planapp.Services.AppUsageInfo> FilteredApps = new();
+    private List<com.usagemeter.androidapp.Services.AppUsageInfo>? AppUsages;
+    private List<com.usagemeter.androidapp.Services.AppUsageInfo> FilteredApps = new();
     private bool HasPermission = false;
     private bool IsRefreshing = false;
     private bool ShowOnlyUsedApps = true;
@@ -297,7 +297,7 @@ private string? GetIconDataUrl(string packageName)
         return string.IsNullOrEmpty(cachedUrl) ? null : cachedUrl;
 
 #if ANDROID
-    var base64Icon = Planapp.Platforms.Android.UsageStatsHelper.GetAppIcon(packageName);
+    var base64Icon = com.usagemeter.androidapp.Platforms.Android.UsageStatsHelper.GetAppIcon(packageName);
     if (!string.IsNullOrEmpty(base64Icon))
     {
         var dataUrl = $"data:image/png;base64,{base64Icon}";

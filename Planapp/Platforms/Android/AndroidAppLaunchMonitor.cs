@@ -6,12 +6,12 @@ using System.Threading.Tasks;
 using Android.App.Usage;
 using Android.Content;
 using Microsoft.Extensions.Logging;
-using Planapp.Services;
+using com.usagemeter.androidapp.Services;
 using Android.App;
 using Android.OS;
 using AndroidApp = Android.App.Application;
 
-namespace Planapp.Platforms.Android
+namespace com.usagemeter.androidapp.Platforms.Android
 {
     public class AndroidAppLaunchMonitor : IAppLaunchMonitor
     {

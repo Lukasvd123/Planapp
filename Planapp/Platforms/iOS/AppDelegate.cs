@@ -1,6 +1,6 @@
 ﻿using Foundation;
 
-namespace Planapp
+namespace com.usagemeter.androidapp
 {
     [Register("AppDelegate")]
     public class AppDelegate : MauiUIApplicationDelegate

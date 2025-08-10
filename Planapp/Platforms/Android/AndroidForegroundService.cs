@@ -4,10 +4,10 @@ using Android.Content.PM;
 using Android.OS;
 using AndroidX.Core.App;
 using Microsoft.Extensions.Logging;
-using Planapp.Services;
+using com.usagemeter.androidapp.Services;
 using AndroidApp = Android.App.Application;
 
-namespace Planapp.Platforms.Android
+namespace com.usagemeter.androidapp.Platforms.Android
 {
     [Service(ForegroundServiceType = ForegroundService.TypeDataSync)]
     public class AndroidForegroundService : Service
@@ -142,7 +142,7 @@ namespace Planapp.Platforms.Android
             }
         }
 
-        public static void ShowBlockingOverlay(Planapp.Models.AppRule rule)
+        public static void ShowBlockingOverlay(com.usagemeter.androidapp.Models.AppRule rule)
         {
             try
             {

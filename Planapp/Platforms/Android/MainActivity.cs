@@ -3,14 +3,13 @@ using Android.Content;
 using Android.Content.PM;
 using Android.OS;
 using Android.Runtime;
-using Microsoft.Maui.Controls.Compatibility.Platform.Android;  // <-- for AppCompat support
+using AndroidX.AppCompat.App;
 
-namespace Planapp
+namespace com.usagemeter.androidapp
 {
     [Activity(
-          Name = "com.usagemeter.androidapp.MainActivity",   // ← force this exact Java name
-        Theme = "@style/Maui.SplashTheme",
-        MainLauncher = true,
+    Theme = "@style/Maui.SplashTheme",
+    MainLauncher = true,
         LaunchMode = LaunchMode.SingleTop,
         ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
     public class MainActivity : MauiAppCompatActivity
@@ -19,6 +18,9 @@ namespace Planapp
         {
             base.OnCreate(savedInstanceState);
 
+            // Switch to main theme after splash
+            SetTheme(Microsoft.Maui.Resource.Style.Maui_MainTheme);
+
             // Handle intent if app was opened to show blocking modal
             HandleIntent(Intent);
         }
@@ -26,8 +28,6 @@ namespace Planapp
         protected override void OnNewIntent(Intent? intent)
         {
             base.OnNewIntent(intent);
-
-            // Handle intent when app is already running
             HandleIntent(intent);
         }
 
@@ -37,19 +37,15 @@ namespace Planapp
 
             try
             {
-                // Check if we need to show blocking modal
                 var showBlock = intent.GetBooleanExtra("SHOW_BLOCK", false);
                 var ruleId = intent.GetStringExtra("RULE_ID");
 
                 if (showBlock && !string.IsNullOrEmpty(ruleId))
                 {
-                    // Signal to the app that we need to show blocking modal
                     Task.Run(async () =>
                     {
-                        // Wait for app to be ready
                         await Task.Delay(1000);
 
-                        // Get the rule service and trigger the block
                         var app = IPlatformApplication.Current;
                         if (app?.Services != null)
                         {
@@ -76,14 +72,12 @@ namespace Planapp
             }
         }
 
-        // Handle back button to prevent bypassing blocking modal
         public override void OnBackPressed()
         {
             var blockService = IPlatformApplication.Current?.Services?.GetService<Services.IRuleBlockService>();
 
             if (blockService?.IsBlocking == true)
             {
-                // Don't allow back button when blocking modal is shown
                 return;
             }
 

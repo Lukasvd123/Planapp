@@ -1,7 +1,7 @@
 ﻿using Android.App;
 using Android.Runtime;
 
-namespace Planapp
+namespace com.usagemeter.androidapp
 {
     [Application]
     public class MainApplication : MauiApplication

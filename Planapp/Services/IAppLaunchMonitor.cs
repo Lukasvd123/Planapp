@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 
-namespace Planapp.Services
+namespace com.usagemeter.androidapp.Services
 {
     public interface IAppLaunchMonitor
     {

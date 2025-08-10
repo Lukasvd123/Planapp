@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
-using Planapp.Services;
+using com.usagemeter.androidapp.Services;
 
-namespace Planapp
+namespace com.usagemeter.androidapp
 {
     public static class MauiProgram
     {
@@ -49,9 +49,9 @@ namespace Planapp
 #endif
 
                 // Configure logging levels
-                builder.Logging.AddFilter("Planapp.Services.RuleMonitorService", LogLevel.Information);
-                builder.Logging.AddFilter("Planapp.Platforms.Android.AndroidAppLaunchMonitor", LogLevel.Information);
-                builder.Logging.AddFilter("Planapp.Services.RuleBlockService", LogLevel.Information);
+                builder.Logging.AddFilter("com.usagemeter.androidapp.Services.RuleMonitorService", LogLevel.Information);
+                builder.Logging.AddFilter("com.usagemeter.androidapp.Platforms.Android.AndroidAppLaunchMonitor", LogLevel.Information);
+                builder.Logging.AddFilter("com.usagemeter.androidapp.Services.RuleBlockService", LogLevel.Information);
 
                 var app = builder.Build();
 
@@ -68,7 +68,7 @@ namespace Planapp
                         logger?.LogInformation("Starting Android initialization...");
 
                         // Initialize notification channel
-                        Planapp.Platforms.Android.AndroidNotificationHelper.InitializeNotificationChannel();
+                        com.usagemeter.androidapp.Platforms.Android.AndroidNotificationHelper.InitializeNotificationChannel();
 
                         // Check permissions
                         var usageService = app.Services.GetService<IUsageStatsService>();
@@ -96,7 +96,7 @@ namespace Planapp
                         await Task.Delay(3000);
                         try
                         {
-                            Planapp.Platforms.Android.AndroidNotificationHelper.InitializeNotificationChannel();
+                            com.usagemeter.androidapp.Platforms.Android.AndroidNotificationHelper.InitializeNotificationChannel();
                             logger?.LogInformation("Retry successful");
                         }
                         catch

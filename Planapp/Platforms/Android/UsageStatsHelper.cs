@@ -12,7 +12,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using AndroidApp = Android.App.Application;
 
-namespace Planapp.Platforms.Android
+namespace com.usagemeter.androidapp.Platforms.Android
 {
     public class AndroidAppUsageInfo
     {

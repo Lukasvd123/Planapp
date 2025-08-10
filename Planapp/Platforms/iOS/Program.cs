@@ -1,7 +1,7 @@
 ﻿using ObjCRuntime;
 using UIKit;
 
-namespace Planapp
+namespace com.usagemeter.androidapp
 {
     public class Program
     {

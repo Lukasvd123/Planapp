@@ -1,16 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-	<!-- Base application theme. -->
-	<style name="Maui.MainTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-		<!-- Primary brand colors. -->
-		<item name="colorPrimary">@color/maui_material_primary</item>
-		<item name="colorPrimaryVariant">@color/maui_material_primary_variant</item>
-		<item name="colorOnPrimary">@color/maui_material_on_primary</item>
-		<!-- … any other overrides … -->
+	<!-- Base application theme for .NET 9.0 compatibility -->
+	<style name="Maui.MainTheme" parent="Theme.AppCompat.Light.NoActionBar">
+		<!-- Primary brand colors -->
+		<item name="colorPrimary">@color/colorPrimary</item>
+		<item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+		<item name="colorAccent">@color/colorAccent</item>
+		<item name="android:windowBackground">@android:color/white</item>
+		<item name="android:windowLightStatusBar">true</item>
 	</style>
 
-	<!-- Splash screen uses the same base but you can leave it as-is. -->
-	<style name="Maui.SplashTheme" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-		<item name="android:windowBackground">@drawable/splash_background</item>
+	<!-- Splash Theme -->
+	<style name="Maui.SplashTheme" parent="Theme.AppCompat.Light.NoActionBar">
+		<item name="android:windowBackground">@color/colorPrimary</item>
+		<item name="android:windowNoTitle">true</item>
+		<item name="android:windowFullscreen">false</item>
+		<item name="android:windowContentOverlay">@null</item>
+		<item name="android:windowIsTranslucent">true</item>
 	</style>
 </resources>

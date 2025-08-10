@@ -4,7 +4,7 @@ using AndroidX.Core.App;
 using Android.OS;
 using AndroidApp = Android.App.Application;
 
-namespace Planapp.Platforms.Android
+namespace com.usagemeter.androidapp.Platforms.Android
 {
     public static class AndroidNotificationHelper
     {

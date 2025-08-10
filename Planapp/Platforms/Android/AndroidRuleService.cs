@@ -4,10 +4,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using Android.Content;
 using Android.Content.PM;
-using Planapp.Models;
-using Planapp.Services;
+using com.usagemeter.androidapp.Models;
+using com.usagemeter.androidapp.Services;
 
-namespace Planapp.Platforms.Android
+namespace com.usagemeter.androidapp.Platforms.Android
 {
     public class AndroidRuleService : DefaultRuleService
     {

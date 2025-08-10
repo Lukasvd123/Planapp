@@ -1,8 +1,8 @@
 ﻿@page "/rules/select-apps/{RuleId}"
 @page "/rules/select-target/{RuleId}"
-@inject Planapp.Services.IRuleService RuleService
+@inject com.usagemeter.androidapp.Services.IRuleService RuleService
 @inject NavigationManager Navigation
-@using Planapp.Models
+@using com.usagemeter.androidapp.Models
 
 <div class="page-header">
     <h1>📱 @(IsTargetSelection ? "Select Target App" : "Select Apps")</h1>

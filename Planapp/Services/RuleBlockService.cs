@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Planapp.Models;
+using com.usagemeter.androidapp.Models;
 using System.Linq;
 #if ANDROID
 using AndroidApp = Android.App.Application;
 #endif
 
-namespace Planapp.Services
+namespace com.usagemeter.androidapp.Services
 {
     public class RuleBlockService : IRuleBlockService
     {

@@ -2,7 +2,7 @@ using System;
 using Microsoft.Maui;
 using Microsoft.Maui.Hosting;
 
-namespace Planapp
+namespace com.usagemeter.androidapp
 {
     internal class Program : MauiApplication
     {
