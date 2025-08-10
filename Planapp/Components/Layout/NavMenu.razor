@@ -9,7 +9,7 @@
 <div class="nav-scrollable">
     <nav class="flex-column">
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All" @onclick="HandleNavigation">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Dashboard
             </NavLink>
         </div>
@@ -18,19 +18,19 @@
         @if (DeviceInfo.Platform == DevicePlatform.Android)
         {
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="rules">
+                <NavLink class="nav-link" href="rules" @onclick="HandleNavigation">
                     <span class="bi bi-rules-nav-menu" aria-hidden="true"></span> Rules
                 </NavLink>
             </div>
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="android-usage">
+                <NavLink class="nav-link" href="android-usage" @onclick="HandleNavigation">
                     <span class="bi bi-phone-nav-menu" aria-hidden="true"></span> App Usage
                 </NavLink>
             </div>
         }
 
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="settings">
+            <NavLink class="nav-link" href="settings" @onclick="HandleNavigation">
                 <span class="bi bi-settings-nav-menu" aria-hidden="true"></span> Settings
             </NavLink>
         </div>
@@ -46,12 +46,12 @@
         @if (isDebugBuild)
         {
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="rule-test">
+                <NavLink class="nav-link" href="rule-test" @onclick="HandleNavigation">
                     <span class="bi bi-test-nav-menu" aria-hidden="true"></span> Test Rules
                 </NavLink>
             </div>
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="launch-test">
+                <NavLink class="nav-link" href="launch-test" @onclick="HandleNavigation">
                     <span class="bi bi-launch-test-nav-menu" aria-hidden="true"></span> Launch Test
                 </NavLink>
             </div>
@@ -60,5 +60,10 @@
 </div>
 
 @code {
+    [Parameter] public EventCallback OnNavigationClick { get; set; }
 
+    private async Task HandleNavigation()
+    {
+        await OnNavigationClick.InvokeAsync();
+    }
 }

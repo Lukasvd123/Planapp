@@ -1,4 +1,4 @@
-/* Mobile-first approach */
+/* Mobile-first approach with FORCED hamburger visibility */
 .page {
     position: relative;
     display: flex;
@@ -35,40 +35,47 @@
     text-align: center;
 }
 
-/* FORCE hamburger to show on ALL devices */
+/* FORCE hamburger to show on ALL screens - CRITICAL FIX */
 .navbar-toggler {
-    background: none;
-    border: 2px solid rgba(255, 255, 255, 0.5);
-    border-radius: 8px;
-    padding: 0.5rem;
-    cursor: pointer;
-    display: flex !important; /* FORCE SHOW */
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    transition: all 0.2s ease;
-    order: -1;
-    flex-shrink: 0;
-    -webkit-tap-highlight-color: transparent;
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: 2px solid rgba(255, 255, 255, 0.5) !important;
+    border-radius: 8px !important;
+    padding: 0.5rem !important;
+    cursor: pointer !important;
+    display: flex !important; /* FORCE SHOW ALWAYS */
+    visibility: visible !important; /* FORCE VISIBLE */
+    opacity: 1 !important; /* FORCE OPAQUE */
+    align-items: center !important;
+    justify-content: center !important;
+    width: 44px !important;
+    height: 44px !important;
+    transition: all 0.2s ease !important;
+    order: -1 !important;
+    flex-shrink: 0 !important;
+    -webkit-tap-highlight-color: transparent !important;
+    position: relative !important;
+    z-index: 9999 !important;
 }
 
     .navbar-toggler:hover,
     .navbar-toggler:focus,
     .navbar-toggler.active {
-        background: rgba(255, 255, 255, 0.2);
-        border-color: rgba(255, 255, 255, 0.8);
-        outline: none;
+        background: rgba(255, 255, 255, 0.3) !important;
+        border-color: rgba(255, 255, 255, 0.8) !important;
+        outline: none !important;
+        transform: scale(1.05) !important;
     }
 
 .navbar-toggler-icon {
-    display: block;
-    width: 24px;
-    height: 18px;
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.9%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: center;
-    background-size: 100%;
+    display: block !important;
+    width: 24px !important;
+    height: 18px !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.9%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: center !important;
+    background-size: 100% !important;
+    opacity: 1 !important;
+    visibility: visible !important;
 }
 
 .content {
@@ -109,7 +116,7 @@
     backdrop-filter: blur(2px);
 }
 
-/* Desktop styles - only apply on larger screens */
+/* Desktop styles - STILL SHOW HAMBURGER */
 @media (min-width: 1024px) {
     .page {
         flex-direction: row;
@@ -127,16 +134,19 @@
         display: none;
     }
 
+    /* KEEP hamburger visible even on desktop for consistency */
     .navbar-toggler {
-        display: none !important;
+        display: flex !important;
+        visibility: visible !important;
     }
 
     .top-row {
-        justify-content: center;
+        justify-content: flex-start; /* Changed from center */
     }
 
     .page-title {
-        text-align: center;
+        text-align: left; /* Changed from center */
+        margin-left: 1rem;
     }
 
     .main-content {
@@ -152,6 +162,7 @@
 
     .navbar-toggler {
         display: flex !important;
+        visibility: visible !important;
     }
 }
 
@@ -173,10 +184,15 @@
     .sidebar {
         width: 280px;
     }
+
+    .navbar-toggler {
+        width: 40px !important;
+        height: 40px !important;
+    }
 }
 
-/* Ensure hamburger is ALWAYS visible on mobile */
-@media (max-width: 1023px) {
+/* FORCE hamburger visibility on ALL screen sizes */
+@media (max-width: 2560px) {
     .navbar-toggler {
         display: flex !important;
         visibility: visible !important;
@@ -187,21 +203,38 @@
 /* High contrast for better visibility */
 @media (prefers-contrast: high) {
     .navbar-toggler {
-        border-color: white;
-        background: rgba(255, 255, 255, 0.1);
+        border-color: white !important;
+        background: rgba(255, 255, 255, 0.3) !important;
     }
 }
 
 /* Accessibility improvements */
 .navbar-toggler:focus-visible {
-    outline: 2px solid white;
-    outline-offset: 2px;
+    outline: 2px solid white !important;
+    outline-offset: 2px !important;
 }
 
 /* Touch improvements for mobile */
 @media (pointer: coarse) {
     .navbar-toggler {
-        min-width: 48px;
-        min-height: 48px;
+        min-width: 48px !important;
+        min-height: 48px !important;
     }
+}
+
+/* Ensure hamburger works with any CSS framework overrides */
+.navbar-toggler[style] {
+    display: flex !important;
+    visibility: visible !important;
+}
+
+/* Additional fallback styles */
+button.navbar-toggler {
+    display: flex !important;
+    visibility: visible !important;
+}
+
+.top-row .navbar-toggler {
+    display: flex !important;
+    visibility: visible !important;
 }

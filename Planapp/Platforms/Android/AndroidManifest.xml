@@ -20,7 +20,9 @@
       android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
       android:windowSoftInputMode="adjustResize"
       android:excludeFromRecents="false"
-      android:taskAffinity="">
+      android:taskAffinity=""
+      android:clearTaskOnLaunch="false"
+      android:finishOnTaskLaunch="false">
       
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
@@ -53,6 +55,11 @@
   <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
   <uses-permission android:name="android.permission.GET_TASKS" />
   <uses-permission android:name="android.permission.REORDER_TASKS" />
+  
+  <!-- Additional permissions for better app control -->
+  <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
+  <uses-permission android:name="android.permission.FORCE_STOP_PACKAGES" />
+  <uses-permission android:name="android.permission.RESTART_PACKAGES" />
 
   <!-- Package queries for Android 11+ -->
   <queries>

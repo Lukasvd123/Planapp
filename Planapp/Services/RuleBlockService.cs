@@ -5,6 +5,8 @@ using com.usagemeter.androidapp.Models;
 using System.Linq;
 #if ANDROID
 using AndroidApp = Android.App.Application;
+using Android.Content;
+using Android.Content.PM;
 #endif
 
 namespace com.usagemeter.androidapp.Services
@@ -61,9 +63,6 @@ namespace com.usagemeter.androidapp.Services
                 }
                 catch { }
             }
-
-            // Bring app to foreground to show blocking modal
-            com.usagemeter.androidapp.Platforms.Android.AndroidForegroundService.ShowBlockingOverlay(rule);
 #endif
 
             IsBlocking = true;
@@ -77,29 +76,23 @@ namespace com.usagemeter.androidapp.Services
                 case "Instant":
                     // Kill app immediately and go home
                     await KillCurrentForegroundApp();
+                    await Task.Delay(500); // Wait for app to close
                     await GoToHome(settings.HomeAppPackage);
                     IsBlocking = false;
                     CurrentBlockedRule = null;
                     break;
 
-                case "Timer":
-                    // Show blocking screen with timer
-                    await KillCurrentForegroundApp();
-                    RuleTriggered?.Invoke(this, new RuleBlockEventArgs { Rule = rule });
-                    break;
-
-                case "Choice":
-                    // Show modal with options
-                    await KillCurrentForegroundApp();
-                    RuleTriggered?.Invoke(this, new RuleBlockEventArgs { Rule = rule });
-                    break;
-
                 case "OpenApp":
-                    // Open target app directly
+                    // Kill current app and open target app directly
                     await KillCurrentForegroundApp();
+                    await Task.Delay(500); // Wait for app to close
                     if (!string.IsNullOrEmpty(rule.TargetPackage))
                     {
-                        await OpenSpecificApp(rule.TargetPackage);
+                        var success = await OpenSpecificApp(rule.TargetPackage);
+                        if (!success)
+                        {
+                            await GoToHome(settings.HomeAppPackage);
+                        }
                     }
                     else
                     {
@@ -109,9 +102,18 @@ namespace com.usagemeter.androidapp.Services
                     CurrentBlockedRule = null;
                     break;
 
+                case "Timer":
+                case "Choice":
                 default:
-                    // Fallback to choice mode
+                    // Kill current app and show blocking modal
                     await KillCurrentForegroundApp();
+                    await Task.Delay(500); // Wait for app to close
+
+#if ANDROID
+                    // Force bring our app to foreground to show the modal
+                    await BringAppToForeground();
+#endif
+                    // Trigger the blocking modal
                     RuleTriggered?.Invoke(this, new RuleBlockEventArgs { Rule = rule });
                     break;
             }
@@ -179,20 +181,101 @@ namespace com.usagemeter.androidapp.Services
             await AcknowledgeBlock();
         }
 
+#if ANDROID
+        private async Task BringAppToForeground()
+        {
+            try
+            {
+                var context = Platform.CurrentActivity ?? AndroidApp.Context;
+                if (context == null)
+                {
+                    _logger.LogError("Android context not available");
+                    return;
+                }
+
+                // Create intent to bring our app to foreground
+                var intent = new Intent(context, typeof(MainActivity));
+                intent.AddFlags(ActivityFlags.NewTask |
+                               ActivityFlags.ClearTop |
+                               ActivityFlags.SingleTop |
+                               ActivityFlags.ReorderToFront);
+                intent.PutExtra("SHOW_BLOCK", true);
+                intent.PutExtra("RULE_ID", CurrentBlockedRule?.Id ?? "");
+
+                context.StartActivity(intent);
+                _logger.LogInformation("App brought to foreground for blocking modal");
+
+                await Task.Delay(1000); // Give it time to come to foreground
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error bringing app to foreground");
+            }
+        }
+#endif
+
         private async Task KillCurrentForegroundApp()
         {
             try
             {
 #if ANDROID
-                _logger.LogInformation("Attempting to minimize current app");
+                _logger.LogInformation("Attempting to close current app");
 
-                // Move task to back instead of killing
-                var activity = Platform.CurrentActivity;
-                if (activity != null)
+                var context = Platform.CurrentActivity ?? AndroidApp.Context;
+                if (context == null)
                 {
-                    activity.MoveTaskToBack(true);
-                    await Task.Delay(500);
+                    _logger.LogError("Android context not available");
+                    return;
                 }
+
+                // Method 1: Try to get the current foreground app and force stop it
+                try
+                {
+                    var usageStatsManager = context.GetSystemService(Context.UsageStatsService) as Android.App.Usage.UsageStatsManager;
+                    if (usageStatsManager != null)
+                    {
+                        var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
+                        var startTime = endTime - 10000; // Last 10 seconds
+
+                        var usageEvents = usageStatsManager.QueryEvents(startTime, endTime);
+                        string? currentApp = null;
+
+                        // Find the most recent app that was brought to foreground
+                        while (usageEvents.HasNextEvent)
+                        {
+                            var eventObj = new Android.App.Usage.UsageEvents.Event();
+                            usageEvents.GetNextEvent(eventObj);
+
+                            if (eventObj.EventType == Android.App.Usage.UsageEvents.Event.ActivityResumed)
+                            {
+                                currentApp = eventObj.PackageName;
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(currentApp) && currentApp != context.PackageName)
+                        {
+                            _logger.LogInformation($"Attempting to close current foreground app: {currentApp}");
+
+                            // Force the app to background by launching home
+                            var homeIntent = new Intent(Intent.ActionMain);
+                            homeIntent.AddCategory(Intent.CategoryHome);
+                            homeIntent.SetFlags(ActivityFlags.NewTask | ActivityFlags.ReorderToFront);
+                            context.StartActivity(homeIntent);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Could not identify/close current app, using fallback method");
+                }
+
+                // Method 2: Always send home intent as fallback
+                var fallbackHomeIntent = new Intent(Intent.ActionMain);
+                fallbackHomeIntent.AddCategory(Intent.CategoryHome);
+                fallbackHomeIntent.SetFlags(ActivityFlags.NewTask | ActivityFlags.ReorderToFront);
+                context.StartActivity(fallbackHomeIntent);
+
+                _logger.LogInformation("Sent home intent to close current app");
 #else
                 _logger.LogInformation("App killing not supported on this platform");
 #endif
@@ -218,21 +301,25 @@ namespace com.usagemeter.androidapp.Services
                 }
 
                 // Try to use configured home app first
-                if (!string.IsNullOrEmpty(homePackage))
+                if (!string.IsNullOrEmpty(homePackage) && homePackage != "com.android.launcher3")
                 {
                     var success = await TryLaunchApp(homePackage);
-                    if (success) return;
+                    if (success)
+                    {
+                        _logger.LogInformation($"Successfully launched configured home app: {homePackage}");
+                        return;
+                    }
                 }
 
                 // Fallback to default home
-                var homeIntent = new Android.Content.Intent(Android.Content.Intent.ActionMain);
-                homeIntent.AddCategory(Android.Content.Intent.CategoryHome);
-                homeIntent.SetFlags(Android.Content.ActivityFlags.NewTask |
-                                   Android.Content.ActivityFlags.ClearTop |
-                                   Android.Content.ActivityFlags.ResetTaskIfNeeded);
+                var homeIntent = new Intent(Intent.ActionMain);
+                homeIntent.AddCategory(Intent.CategoryHome);
+                homeIntent.SetFlags(ActivityFlags.NewTask |
+                                   ActivityFlags.ClearTop |
+                                   ActivityFlags.ReorderToFront);
 
                 context.StartActivity(homeIntent);
-                _logger.LogInformation("Successfully navigated to home screen");
+                _logger.LogInformation("Successfully navigated to default home screen");
 #endif
             }
             catch (Exception ex)
@@ -243,7 +330,7 @@ namespace com.usagemeter.androidapp.Services
             await Task.CompletedTask;
         }
 
-        private async Task OpenSpecificApp(string packageName)
+        private async Task<bool> OpenSpecificApp(string packageName)
         {
             try
             {
@@ -266,6 +353,7 @@ namespace com.usagemeter.androidapp.Services
                     }
 
                     await GoToHome(settings.HomeAppPackage);
+                    return false;
                 }
                 else
                 {
@@ -280,9 +368,11 @@ namespace com.usagemeter.androidapp.Services
                             $"Successfully opened {appName}"
                         );
                     }
+                    return true;
                 }
 #else
                 _logger.LogInformation($"App opening not supported on this platform: {packageName}");
+                return false;
 #endif
             }
             catch (Exception ex)
@@ -290,9 +380,8 @@ namespace com.usagemeter.androidapp.Services
                 _logger.LogError(ex, $"Error opening specific app: {packageName}");
                 var settings = await _settingsService.GetSettingsAsync();
                 await GoToHome(settings.HomeAppPackage);
+                return false;
             }
-
-            await Task.CompletedTask;
         }
 
 #if ANDROID
@@ -313,12 +402,12 @@ namespace com.usagemeter.androidapp.Services
                 var intent = context.PackageManager.GetLaunchIntentForPackage(packageName);
                 if (intent != null)
                 {
-                    intent.AddFlags(Android.Content.ActivityFlags.NewTask |
-                                   Android.Content.ActivityFlags.ClearTop |
-                                   Android.Content.ActivityFlags.ResetTaskIfNeeded);
+                    intent.AddFlags(ActivityFlags.NewTask |
+                                   ActivityFlags.ClearTop |
+                                   ActivityFlags.ReorderToFront);
 
                     context.StartActivity(intent);
-                    await Task.Delay(1500); // Give it time to launch
+                    await Task.Delay(2000); // Give it more time to launch
 
                     _logger.LogInformation($"Successfully launched {packageName} using launch intent");
                     return true;
@@ -327,11 +416,12 @@ namespace com.usagemeter.androidapp.Services
                 _logger.LogDebug($"No launch intent found for {packageName}");
 
                 // Method 2: Try to create intent manually
-                var mainIntent = new Android.Content.Intent(Android.Content.Intent.ActionMain);
-                mainIntent.AddCategory(Android.Content.Intent.CategoryLauncher);
+                var mainIntent = new Intent(Intent.ActionMain);
+                mainIntent.AddCategory(Intent.CategoryLauncher);
                 mainIntent.SetPackage(packageName);
-                mainIntent.AddFlags(Android.Content.ActivityFlags.NewTask |
-                                   Android.Content.ActivityFlags.ClearTop);
+                mainIntent.AddFlags(ActivityFlags.NewTask |
+                                   ActivityFlags.ClearTop |
+                                   ActivityFlags.ReorderToFront);
 
                 var activities = context.PackageManager.QueryIntentActivities(mainIntent, 0);
                 if (activities != null && activities.Count > 0)
@@ -340,7 +430,7 @@ namespace com.usagemeter.androidapp.Services
                     mainIntent.SetClassName(packageName, activityInfo.Name);
 
                     context.StartActivity(mainIntent);
-                    await Task.Delay(1500);
+                    await Task.Delay(2000);
 
                     _logger.LogInformation($"Successfully launched {packageName} using activity intent");
                     return true;

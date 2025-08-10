@@ -10,16 +10,16 @@
 
 <div class="page">
     <div class="sidebar @NavMenuCssClass" @onclick="@(() => _navMenuExpanded = false)">
-        <NavMenu />
+        <NavMenu OnNavigationClick="@CloseMenu" />
     </div>
 
     <main class="main-content">
         <div class="top-row px-4">
-            <!-- ALWAYS show hamburger button on mobile -->
+            <!-- Force hamburger button to always show -->
             <button class="navbar-toggler @(_navMenuExpanded ? "active" : "")" 
                     @onclick="ToggleNavMenu" 
                     aria-label="Toggle navigation"
-                    style="display: flex !important;">
+                    style="display: flex !important; visibility: visible !important;">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <h1 class="page-title">📱 Usage Meter</h1>
@@ -87,6 +87,13 @@
     {
         _navMenuExpanded = !_navMenuExpanded;
         Logger.LogInformation($"Navigation menu toggled: {_navMenuExpanded}");
+        StateHasChanged();
+    }
+
+    // Method to close menu when navigation occurs
+    private void CloseMenu()
+    {
+        _navMenuExpanded = false;
         StateHasChanged();
     }
 
@@ -169,7 +176,7 @@
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, $"Error opening target app: {packageName}");
+            Logger.LogError(ex, "Error opening target app: {packageName}");
         }
     }
 
