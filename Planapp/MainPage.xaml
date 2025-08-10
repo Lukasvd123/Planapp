@@ -2,16 +2,13 @@
 <ContentPage
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:components="clr-namespace:Planapp.Components"  
-    x:Class="Planapp.MainPage">
-
+    xmlns:components="clr-namespace:com.usagemeter.androidapp.Components"  
+    x:Class="com.usagemeter.androidapp.MainPage">
     <BlazorWebView HostPage="wwwroot/index.html">
         <BlazorWebView.RootComponents>
-            <!-- note: use the 'components:' prefix here -->
             <RootComponent
-        Selector="#app"
-        ComponentType="{x:Type components:Routes}" />
+                Selector="#app"
+                ComponentType="{x:Type components:Routes}" />
         </BlazorWebView.RootComponents>
     </BlazorWebView>
-
 </ContentPage>

@@ -16,7 +16,7 @@
     <!-- Main Activity: replace the auto-generated one -->
     <activity
       android:name="com.usagemeter.androidapp.MainActivity"
-      tools:node="replace"
+     
       android:exported="true"
       android:launchMode="singleTop"
       android:screenOrientation="portrait">

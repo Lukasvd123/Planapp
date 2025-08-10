@@ -1,87 +1,13 @@
 ﻿using Android.App;
-using Android.Content;
 using Android.Content.PM;
-using Android.OS;
-using Android.Runtime;
-using AndroidX.AppCompat.App;
 
 namespace com.usagemeter.androidapp
 {
     [Activity(
-    Theme = "@style/Maui.SplashTheme",
-    MainLauncher = true,
+        MainLauncher = true,
         LaunchMode = LaunchMode.SingleTop,
-        ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
+        Exported = true)]
     public class MainActivity : MauiAppCompatActivity
     {
-        protected override void OnCreate(Bundle? savedInstanceState)
-        {
-            base.OnCreate(savedInstanceState);
-
-            // Switch to main theme after splash
-            SetTheme(Microsoft.Maui.Resource.Style.Maui_MainTheme);
-
-            // Handle intent if app was opened to show blocking modal
-            HandleIntent(Intent);
-        }
-
-        protected override void OnNewIntent(Intent? intent)
-        {
-            base.OnNewIntent(intent);
-            HandleIntent(intent);
-        }
-
-        private void HandleIntent(Intent? intent)
-        {
-            if (intent == null) return;
-
-            try
-            {
-                var showBlock = intent.GetBooleanExtra("SHOW_BLOCK", false);
-                var ruleId = intent.GetStringExtra("RULE_ID");
-
-                if (showBlock && !string.IsNullOrEmpty(ruleId))
-                {
-                    Task.Run(async () =>
-                    {
-                        await Task.Delay(1000);
-
-                        var app = IPlatformApplication.Current;
-                        if (app?.Services != null)
-                        {
-                            var ruleService = app.Services.GetService<Services.IRuleService>();
-                            var blockService = app.Services.GetService<Services.IRuleBlockService>();
-
-                            if (ruleService != null && blockService != null)
-                            {
-                                var rules = await ruleService.GetRulesAsync();
-                                var rule = rules.FirstOrDefault(r => r.Id == ruleId);
-
-                                if (rule != null)
-                                {
-                                    await blockService.TriggerRuleBlock(rule);
-                                }
-                            }
-                        }
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Error handling intent: {ex}");
-            }
-        }
-
-        public override void OnBackPressed()
-        {
-            var blockService = IPlatformApplication.Current?.Services?.GetService<Services.IRuleBlockService>();
-
-            if (blockService?.IsBlocking == true)
-            {
-                return;
-            }
-
-            base.OnBackPressed();
-        }
     }
 }

@@ -42,7 +42,7 @@ namespace com.usagemeter.androidapp.Services
             // Show notification if enabled
             if (settings.ShowNotifications)
             {
-                Planapp.Platforms.Android.AndroidNotificationHelper.ShowRuleTriggeredNotification(
+                com.usagemeter.androidapp.Platforms.Android.AndroidNotificationHelper.ShowRuleTriggeredNotification(
                     rule.Name,
                     string.Join(", ", rule.SelectedAppNames.Take(2))
                 );
@@ -63,7 +63,7 @@ namespace com.usagemeter.androidapp.Services
             }
 
             // Bring app to foreground to show blocking modal
-            Planapp.Platforms.Android.AndroidForegroundService.ShowBlockingOverlay(rule);
+            com.usagemeter.androidapp.Platforms.Android.AndroidForegroundService.ShowBlockingOverlay(rule);
 #endif
 
             IsBlocking = true;
@@ -215,7 +215,7 @@ namespace com.usagemeter.androidapp.Services
                     var settings = await _settingsService.GetSettingsAsync();
                     if (settings.ShowNotifications)
                     {
-                        Planapp.Platforms.Android.AndroidNotificationHelper.ShowAppLaunchNotification(
+                        com.usagemeter.androidapp.Platforms.Android.AndroidNotificationHelper.ShowAppLaunchNotification(
                             "Launch Failed",
                             $"Could not launch {packageName}"
                         );
@@ -230,8 +230,8 @@ namespace com.usagemeter.androidapp.Services
                     var settings = await _settingsService.GetSettingsAsync();
                     if (settings.ShowNotifications)
                     {
-                        var appName = Planapp.Platforms.Android.UsageStatsHelper.GetAppName(packageName);
-                        Planapp.Platforms.Android.AndroidNotificationHelper.ShowAppLaunchNotification(
+                        var appName = com.usagemeter.androidapp.Platforms.Android.UsageStatsHelper.GetAppName(packageName);
+                        com.usagemeter.androidapp.Platforms.Android.AndroidNotificationHelper.ShowAppLaunchNotification(
                             "App Launched",
                             $"Successfully opened {appName}"
                         );
