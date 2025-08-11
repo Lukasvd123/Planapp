@@ -15,6 +15,8 @@ namespace com.usagemeter.androidapp
 
                 InitializeComponent();
 
+                // Don't set MainPage here - we'll use CreateWindow instead
+
                 System.Diagnostics.Debug.WriteLine("=== APP CONSTRUCTOR COMPLETED ===");
             }
             catch (Exception ex)
@@ -41,7 +43,7 @@ namespace com.usagemeter.androidapp
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("=== CREATE WINDOW START ===");
+                System.Diagnostics.Debug.WriteLine("=== CREATE WINDOW START (SHELL VERSION) ===");
 
                 // Try to get logger (might fail if services aren't ready)
                 try
@@ -55,39 +57,35 @@ namespace com.usagemeter.androidapp
                     System.Diagnostics.Debug.WriteLine($"Cannot get logger (non-critical): {ex.Message}");
                 }
 
-                // Create minimal window to test basic functionality
-                System.Diagnostics.Debug.WriteLine("Creating MainPage...");
-                var mainPage = new MainPage();
-                System.Diagnostics.Debug.WriteLine("MainPage created successfully");
-
-                System.Diagnostics.Debug.WriteLine("Creating Window...");
-                var window = new Window(mainPage)
+                // Create window with Shell as MainPage
+                System.Diagnostics.Debug.WriteLine("Creating Shell-based window...");
+                var window = new Window(new AppShell())
                 {
-                    Title = "Usage Meter - Debug Mode"
+                    Title = "Usage Meter"
                 };
-                System.Diagnostics.Debug.WriteLine("Window created successfully");
+                System.Diagnostics.Debug.WriteLine("Shell window created successfully");
 
-                // Add minimal event handlers
+                // Add event handlers
                 window.Created += (s, e) =>
                 {
-                    System.Diagnostics.Debug.WriteLine("=== WINDOW CREATED EVENT ===");
-                    _logger?.LogInformation("Window created successfully");
+                    System.Diagnostics.Debug.WriteLine("=== SHELL WINDOW CREATED EVENT ===");
+                    _logger?.LogInformation("Shell window created successfully");
                 };
 
                 window.Destroying += (s, e) =>
                 {
-                    System.Diagnostics.Debug.WriteLine("=== WINDOW DESTROYING EVENT ===");
-                    _logger?.LogInformation("Window destroying");
+                    System.Diagnostics.Debug.WriteLine("=== SHELL WINDOW DESTROYING EVENT ===");
+                    _logger?.LogInformation("Shell window destroying");
                 };
 
-                System.Diagnostics.Debug.WriteLine("=== CREATE WINDOW COMPLETED SUCCESSFULLY ===");
-                _logger?.LogInformation("Main window created successfully");
+                System.Diagnostics.Debug.WriteLine("=== CREATE WINDOW COMPLETED SUCCESSFULLY (SHELL) ===");
+                _logger?.LogInformation("Shell-based main window created successfully");
 
                 return window;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"=== FATAL ERROR CREATING WINDOW: {ex} ===");
+                System.Diagnostics.Debug.WriteLine($"=== FATAL ERROR CREATING SHELL WINDOW: {ex} ===");
                 System.Diagnostics.Debug.WriteLine($"Exception type: {ex.GetType().Name}");
                 System.Diagnostics.Debug.WriteLine($"Message: {ex.Message}");
                 System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
@@ -95,39 +93,29 @@ namespace com.usagemeter.androidapp
                 // Try to write crash log
                 try
                 {
-                    var crashLog = $"CREATE WINDOW CRASH at {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n" +
+                    var crashLog = $"CREATE SHELL WINDOW CRASH at {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n" +
                                   $"Type: {ex.GetType().Name}\n" +
                                   $"Message: {ex.Message}\n" +
                                   $"Stack: {ex.StackTrace}\n\n";
 
                     System.IO.File.WriteAllText(
-                        System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "create_window_crash.log"),
+                        System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "create_shell_window_crash.log"),
                         crashLog
                     );
                 }
                 catch { }
 
-                // Try to create absolute minimal fallback window
+                // Try to create fallback window with basic MainPage
                 try
                 {
-                    System.Diagnostics.Debug.WriteLine("Attempting emergency fallback window...");
+                    System.Diagnostics.Debug.WriteLine("Attempting emergency fallback to basic MainPage...");
 
-                    var fallbackPage = new ContentPage();
-                    fallbackPage.Content = new Label
-                    {
-                        Text = $"CRASH DEBUG MODE\n\nError: {ex.Message}\n\nCheck debug output for details.",
-                        VerticalOptions = LayoutOptions.Center,
-                        HorizontalOptions = LayoutOptions.Center,
-                        BackgroundColor = Colors.Red,
-                        TextColor = Colors.White,
-                        Padding = 20
-                    };
-
-                    return new Window(fallbackPage) { Title = "CRASH DEBUG" };
+                    var fallbackPage = new MainPage();
+                    return new Window(fallbackPage) { Title = "Usage Meter - Fallback" };
                 }
                 catch (Exception fallbackEx)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Even fallback window failed: {fallbackEx}");
+                    System.Diagnostics.Debug.WriteLine($"Even fallback MainPage failed: {fallbackEx}");
                     throw; // Re-throw original exception
                 }
             }
@@ -137,9 +125,9 @@ namespace com.usagemeter.androidapp
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("=== APP ONSTART ===");
+                System.Diagnostics.Debug.WriteLine("=== APP ONSTART (SHELL) ===");
                 base.OnStart();
-                _logger?.LogInformation("App OnStart called");
+                _logger?.LogInformation("Shell-based app OnStart called");
             }
             catch (Exception ex)
             {
@@ -151,9 +139,9 @@ namespace com.usagemeter.androidapp
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("=== APP ONSLEEP ===");
+                System.Diagnostics.Debug.WriteLine("=== APP ONSLEEP (SHELL) ===");
                 base.OnSleep();
-                _logger?.LogInformation("App OnSleep called");
+                _logger?.LogInformation("Shell-based app OnSleep called");
             }
             catch (Exception ex)
             {
@@ -165,9 +153,9 @@ namespace com.usagemeter.androidapp
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("=== APP ONRESUME ===");
+                System.Diagnostics.Debug.WriteLine("=== APP ONRESUME (SHELL) ===");
                 base.OnResume();
-                _logger?.LogInformation("App OnResume called");
+                _logger?.LogInformation("Shell-based app OnResume called");
             }
             catch (Exception ex)
             {

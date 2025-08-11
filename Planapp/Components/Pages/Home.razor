@@ -2,7 +2,6 @@
 @inject com.usagemeter.androidapp.Services.IRuleService RuleService
 @inject com.usagemeter.androidapp.Services.IUsageStatsService UsageStatsService
 @inject com.usagemeter.androidapp.Services.ISettingsService SettingsService
-@inject com.usagemeter.androidapp.Services.RuleMonitorService RuleMonitorService
 @inject NavigationManager Navigation
 @using com.usagemeter.androidapp.Services
 @using com.usagemeter.androidapp.Models
@@ -73,39 +72,13 @@
             }
         </div>
 
-        <!-- Service Status -->
-        <div class="service-status">
-            <h2 class="section-title">⚙️ Service Status</h2>
-            <div class="status-cards">
-                <div class="status-card @(IsMonitoringActive ? "active" : "inactive")">
-                    <div class="status-icon">@(IsMonitoringActive ? "🟢" : "🔴")</div>
-                    <div class="status-content">
-                        <h3>Background Monitoring</h3>
-                        <p>@(IsMonitoringActive ? "Active - Monitoring app usage in background" : "Inactive - Background service not running")</p>
-                        @if (!IsMonitoringActive && HasUsagePermission && HasOverlayPermission && Settings?.AllRulesEnabled == true)
-                        {
-                            <button class="btn-start-monitoring" @onclick="StartBackgroundService">Start Background Service</button>
-                        }
-                        else if (!HasUsagePermission || !HasOverlayPermission)
-                        {
-                            <p class="requirement-text">Requires all permissions to be granted</p>
-                        }
-                        else if (Settings?.AllRulesEnabled != true)
-                        {
-                            <p class="requirement-text">Rules are disabled in settings</p>
-                        }
-                    </div>
-                </div>
-            </div>
-        </div>
-
         @if (HasUsagePermission)
         {
             <div class="stats-grid">
                 <div class="stat-card primary">
                     <div class="stat-icon">📊</div>
                     <div class="stat-content">
-                        <div class="stat-value">@(TodayUsage != null ? FormatTime(TodayUsage.Value) : "--")</div>
+                        <div class="stat-value">@(TodayUsage.HasValue ? FormatTime(TodayUsage.Value) : "--")</div>
                         <div class="stat-label">Today's Screen Time</div>
                     </div>
                 </div>
@@ -135,7 +108,7 @@
                 </div>
             </div>
 
-            @if (TopApps != null && TopApps.Count > 0)
+            @if (TopApps?.Any() == true)
             {
                 <div class="section-card">
                     <h2 class="section-title">🏆 Most Used Apps Today</h2>
@@ -195,32 +168,41 @@
     private bool HasUsagePermission = false;
     private bool HasOverlayPermission = false;
     private bool HasNotificationPermission = false;
-    private bool IsMonitoringActive = false;
-    private long? TodayUsage;
+    private long? TodayUsage = null;
     private int ActiveRulesCount = 0;
     private int AppsMonitored = 0;
-    private List<AppUsageInfo>? TopApps;
-    private List<AppRule>? ActiveRules;
-    private AppSettings? Settings;
+    private List<AppUsageInfo>? TopApps = null;
+    private List<AppRule>? ActiveRules = null;
+    private AppSettings? Settings = null;
     private Timer? _refreshTimer;
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadDashboardData();
-        
-        // Auto-start background service if conditions are met
-        await AutoStartBackgroundService();
-        
-        // Refresh permissions and service status every 5 seconds
-        _refreshTimer = new Timer(async _ => 
+        try
         {
-            await InvokeAsync(async () =>
+            await LoadDashboardData();
+            
+            // Refresh permissions and service status every 10 seconds
+            _refreshTimer = new Timer(async _ => 
             {
-                await CheckPermissions();
-                await CheckServiceStatus();
-                StateHasChanged();
-            });
-        }, null, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10));
+                try
+                {
+                    await InvokeAsync(async () =>
+                    {
+                        await CheckPermissions();
+                        StateHasChanged();
+                    });
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Timer error: {ex}");
+                }
+            }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(15));
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"OnInitializedAsync error: {ex}");
+        }
     }
 
     private async Task LoadDashboardData()
@@ -229,27 +211,42 @@
         {
             Settings = await SettingsService.GetSettingsAsync();
             await CheckPermissions();
-            await CheckServiceStatus();
             
             if (HasUsagePermission)
             {
-                var apps = await UsageStatsService.GetAppUsageAsync();
-                TopApps = apps.OrderByDescending(a => a.TotalTimeInForeground).ToList();
-                TodayUsage = apps.Sum(a => a.TotalTimeInForeground);
-
-                var allRules = await RuleService.GetRulesAsync();
-                ActiveRules = allRules.Where(r => r.IsEnabled && Settings.AllRulesEnabled).ToList();
-                ActiveRulesCount = ActiveRules.Count;
-
-                var monitoredPackages = new HashSet<string>();
-                foreach (var rule in ActiveRules)
+                try
                 {
-                    foreach (var pkg in rule.SelectedPackages)
+                    var apps = await UsageStatsService.GetAppUsageAsync();
+                    if (apps?.Any() == true)
                     {
-                        monitoredPackages.Add(pkg);
+                        TopApps = apps.OrderByDescending(a => a.TotalTimeInForeground).ToList();
+                        TodayUsage = apps.Sum(a => a.TotalTimeInForeground);
+                    }
+
+                    var allRules = await RuleService.GetRulesAsync();
+                    if (allRules?.Any() == true && Settings?.AllRulesEnabled == true)
+                    {
+                        ActiveRules = allRules.Where(r => r.IsEnabled).ToList();
+                        ActiveRulesCount = ActiveRules.Count;
+
+                        var monitoredPackages = new HashSet<string>();
+                        foreach (var rule in ActiveRules)
+                        {
+                            if (rule.SelectedPackages?.Any() == true)
+                            {
+                                foreach (var pkg in rule.SelectedPackages)
+                                {
+                                    monitoredPackages.Add(pkg);
+                                }
+                            }
+                        }
+                        AppsMonitored = monitoredPackages.Count;
                     }
                 }
-                AppsMonitored = monitoredPackages.Count;
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error loading usage data: {ex}");
+                }
             }
         }
         catch (Exception ex)
@@ -293,83 +290,16 @@
         }
     }
 
-    private async Task CheckServiceStatus()
-    {
-        try
-        {
-            // Check if monitoring is active by looking at the service
-            var appLaunchMonitor = IPlatformApplication.Current?.Services?.GetService<Services.IAppLaunchMonitor>();
-            IsMonitoringActive = appLaunchMonitor?.IsMonitoring == true;
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Error checking service status: {ex}");
-            IsMonitoringActive = false;
-        }
-    }
-
-    private async Task AutoStartBackgroundService()
-    {
-        try
-        {
-            if (HasUsagePermission && HasOverlayPermission && Settings?.AllRulesEnabled == true && !IsMonitoringActive)
-            {
-                System.Diagnostics.Debug.WriteLine("Auto-starting background service...");
-                await StartBackgroundService();
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Error auto-starting background service: {ex}");
-        }
-    }
-
-    private async Task StartBackgroundService()
-    {
-        try
-        {
-            if (!HasUsagePermission || !HasOverlayPermission)
-            {
-                System.Diagnostics.Debug.WriteLine("Cannot start service - missing permissions");
-                return;
-            }
-
-            if (Settings?.AllRulesEnabled != true)
-            {
-                System.Diagnostics.Debug.WriteLine("Cannot start service - rules disabled");
-                return;
-            }
-
-#if ANDROID
-            // Start the foreground service
-            await com.usagemeter.androidapp.Platforms.Android.AndroidForegroundService.StartAsync();
-            
-            // Give it a moment to start
-            await Task.Delay(2000);
-            
-            // Check if it actually started
-            await CheckServiceStatus();
-            
-            if (IsMonitoringActive)
-            {
-                System.Diagnostics.Debug.WriteLine("Background service started successfully");
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine("Background service failed to start");
-            }
-#endif
-            StateHasChanged();
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"Error starting background service: {ex}");
-        }
-    }
-
     private void RequestUsagePermission()
     {
-        UsageStatsService.RequestUsageAccess();
+        try
+        {
+            UsageStatsService.RequestUsageAccess();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error requesting usage permission: {ex}");
+        }
     }
 
     private async Task RequestOverlayPermission()
@@ -396,54 +326,96 @@
     private void RequestNotificationPermission()
     {
 #if ANDROID
-        com.usagemeter.androidapp.Platforms.Android.AndroidNotificationHelper.RequestNotificationPermission();
+        try
+        {
+            com.usagemeter.androidapp.Platforms.Android.AndroidNotificationHelper.RequestNotificationPermission();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error requesting notification permission: {ex}");
+        }
 #endif
     }
 
     private async Task RefreshData()
     {
-        await LoadDashboardData();
-        StateHasChanged();
+        try
+        {
+            await LoadDashboardData();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error refreshing data: {ex}");
+        }
     }
 
     private string GetGreeting()
     {
-        var hour = DateTime.Now.Hour;
-        if (hour < 12) return "Good morning! Let's make today productive.";
-        if (hour < 17) return "Good afternoon! Stay focused on what matters.";
-        if (hour < 21) return "Good evening! Time to wind down.";
-        return "Good night! Consider taking a break from screens.";
+        try
+        {
+            var hour = DateTime.Now.Hour;
+            if (hour < 12) return "Good morning! Let's make today productive.";
+            if (hour < 17) return "Good afternoon! Stay focused on what matters.";
+            if (hour < 21) return "Good evening! Time to wind down.";
+            return "Good night! Consider taking a break from screens.";
+        }
+        catch
+        {
+            return "Welcome to Usage Meter!";
+        }
     }
 
     private string FormatTime(long milliseconds)
     {
-        if (milliseconds <= 0) return "0m";
-
-        var time = TimeSpan.FromMilliseconds(milliseconds);
-        var parts = new List<string>();
-
-        if (time.TotalDays >= 1)
+        try
         {
-            var days = (int)time.TotalDays;
-            parts.Add($"{days}d");
-            time = time.Subtract(TimeSpan.FromDays(days));
+            if (milliseconds <= 0) return "0m";
+
+            var time = TimeSpan.FromMilliseconds(milliseconds);
+            var parts = new List<string>();
+
+            if (time.TotalDays >= 1)
+            {
+                var days = (int)time.TotalDays;
+                parts.Add($"{days}d");
+                time = time.Subtract(TimeSpan.FromDays(days));
+            }
+
+            if (time.Hours > 0) parts.Add($"{time.Hours}h");
+            if (time.Minutes > 0) parts.Add($"{time.Minutes}m");
+            if (parts.Count == 0 && time.Seconds > 0) parts.Add($"{time.Seconds}s");
+
+            return parts.Count > 0 ? string.Join(" ", parts) : "0m";
         }
-
-        if (time.Hours > 0) parts.Add($"{time.Hours}h");
-        if (time.Minutes > 0) parts.Add($"{time.Minutes}m");
-        if (parts.Count == 0 && time.Seconds > 0) parts.Add($"{time.Seconds}s");
-
-        return parts.Count > 0 ? string.Join(" ", parts) : "0m";
+        catch
+        {
+            return "N/A";
+        }
     }
 
     private double GetUsagePercentage(AppUsageInfo app)
     {
-        if (TodayUsage == null || TodayUsage == 0) return 0;
-        return (app.TotalTimeInForeground / (double)TodayUsage) * 100;
+        try
+        {
+            if (!TodayUsage.HasValue || TodayUsage == 0) return 0;
+            return (app.TotalTimeInForeground / (double)TodayUsage.Value) * 100;
+        }
+        catch
+        {
+            return 0;
+        }
     }
 
     public void Dispose()
     {
-        _refreshTimer?.Dispose();
+        try
+        {
+            _refreshTimer?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error disposing: {ex}");
+        }
     }
 }

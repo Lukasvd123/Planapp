@@ -1,118 +1,34 @@
 ﻿@inherits LayoutComponentBase
 @using Microsoft.Extensions.Logging
-@using com.usagemeter.androidapp.Services
-@using com.usagemeter.androidapp.Models
 @inject ILogger<MainLayout> Logger
 
 <div class="page">
-    <div class="sidebar @NavMenuCssClass" @onclick="@(() => _navMenuExpanded = false)">
-        <NavMenu OnNavigationClick="@CloseMenu" />
+    <div class="sidebar @NavMenuCssClass">
+        <NavMenu />
     </div>
 
-    <main class="main-content">
-        <div class="top-row px-4" style="background: blue !important; position: relative !important;">
-
-            <!-- NUCLEAR HAMBURGER - Multiple attempts -->
-
-            <!-- Attempt 1: Inline styles -->
-            <button class="navbar-toggler" 
-                    @onclick="ToggleNavMenu" 
-                    style="display: flex !important; visibility: visible !important; opacity: 1 !important; background: red !important; width: 50px !important; height: 50px !important; border: 2px solid white !important; position: relative !important; z-index: 99999 !important;">
-                <span style="color: white; font-size: 1.5rem;">☰</span>
-            </button>
-
-            <!-- Attempt 2: Forced positioning -->
-            <div style="position: absolute; left: 10px; top: 10px; z-index: 99999; background: orange; padding: 10px; cursor: pointer;" @onclick="ToggleNavMenu">
-                <span style="color: white; font-size: 1.5rem;">☰ MENU</span>
-            </div>
-
-            <!-- Attempt 3: CSS classes -->
-            <button class="navbar-toggler @(_navMenuExpanded ? "active" : "")" 
-                    @onclick="ToggleNavMenu" 
-                    aria-label="Toggle navigation">
+    <main>
+        <div class="top-row px-4">
+            <button class="navbar-toggler" @onclick="ToggleNavMenu">
                 <span class="navbar-toggler-icon"></span>
             </button>
-
-            <h1 class="page-title">📱 Usage Meter</h1>
-
-            <!-- Debug info -->
-            <div style="position: absolute; top: 0; right: 0; background: rgba(0,0,0,0.8); color: white; padding: 0.5rem; font-size: 0.7rem; z-index: 9999;">
-                <div>Menu: @(_navMenuExpanded ? "OPEN" : "CLOSED")</div>
-                <div>CSS: @(NavMenuCssClass ?? "null")</div>
-                <div>Time: @DateTime.Now.ToString("HH:mm:ss")</div>
-            </div>
+            <h1>📱 Usage Meter</h1>
         </div>
 
         <article class="content px-4">
-            <!-- Debug content -->
-            <div style="background: yellow; padding: 1rem; margin: 1rem 0;">
-                <h2>🐛 DEBUG MODE</h2>
-                <p><strong>Menu State:</strong> @(_navMenuExpanded ? "EXPANDED" : "COLLAPSED")</p>
-                <p><strong>CSS Class:</strong> @(NavMenuCssClass ?? "none")</p>
-                <p><strong>Click Count:</strong> @_clickCount</p>
-
-                <button @onclick="ToggleNavMenu" style="background: green; color: white; padding: 1rem; margin: 0.5rem; border: none; border-radius: 4px;">
-                    🍔 TOGGLE MENU (Green Button)
-                </button>
-
-                <button @onclick="ForceMenuOpen" style="background: purple; color: white; padding: 1rem; margin: 0.5rem; border: none; border-radius: 4px;">
-                    🔓 FORCE MENU OPEN
-                </button>
-            </div>
-
             @Body
         </article>
     </main>
 </div>
 
-<!-- Backdrop for mobile menu -->
-@if (_navMenuExpanded)
-{
-        <div class="sidebar-backdrop" @onclick="@(() => _navMenuExpanded = false)" style="background: rgba(255,0,0,0.8) !important;"></div>
-}
-
 @code {
-    private bool _navMenuExpanded = false;
-    private int _clickCount = 0;
+    private bool collapseNavMenu = true;
 
-    private string? NavMenuCssClass => _navMenuExpanded ? "show" : null;
-
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            Logger.LogInformation("=== TEST MAINLAYOUT INITIALIZING ===");
-            Console.WriteLine("=== TEST MAINLAYOUT INITIALIZING ===");
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Error in test MainLayout");
-            Console.WriteLine($"Error in test MainLayout: {ex}");
-        }
-    }
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
 
     private void ToggleNavMenu()
     {
-        _clickCount++;
-        _navMenuExpanded = !_navMenuExpanded;
-        Logger.LogInformation($"🍔 MENU TOGGLED: {_navMenuExpanded} (Click #{_clickCount})");
-        Console.WriteLine($"🍔 MENU TOGGLED: {_navMenuExpanded} (Click #{_clickCount})");
-        StateHasChanged();
-    }
-
-    private void ForceMenuOpen()
-    {
-        _navMenuExpanded = true;
-        Logger.LogInformation("🔓 MENU FORCED OPEN");
-        Console.WriteLine("🔓 MENU FORCED OPEN");
-        StateHasChanged();
-    }
-
-    private void CloseMenu()
-    {
-        _navMenuExpanded = false;
-        Logger.LogInformation("❌ MENU CLOSED");
-        Console.WriteLine("❌ MENU CLOSED");
-        StateHasChanged();
+        collapseNavMenu = !collapseNavMenu;
+        Logger.LogInformation($"Nav menu toggled: {!collapseNavMenu}");
     }
 }

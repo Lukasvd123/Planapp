@@ -5,11 +5,68 @@
              x:Class="com.usagemeter.androidapp.App">
     <Application.Resources>
         <ResourceDictionary>
-            <!--
-            For information about styling .NET MAUI pages
-            please refer to the documentation:
-            https://go.microsoft.com/fwlink/?linkid=2282329
-        -->
+            <!-- Color scheme -->
+            <Color x:Key="Primary">#667eea</Color>
+            <Color x:Key="Secondary">#764ba2</Color>
+            <Color x:Key="Tertiary">#2196F3</Color>
+            <Color x:Key="White">White</Color>
+            <Color x:Key="Black">Black</Color>
+            <Color x:Key="Gray100">#E1E1E1</Color>
+            <Color x:Key="Gray200">#C8C8C8</Color>
+            <Color x:Key="Gray300">#ACACAC</Color>
+            <Color x:Key="Gray400">#919191</Color>
+            <Color x:Key="Gray500">#6E6E6E</Color>
+            <Color x:Key="Gray600">#404040</Color>
+            <Color x:Key="Gray900">#212121</Color>
+            <Color x:Key="Gray950">#141414</Color>
+
+            <!-- Shell appearance -->
+            <Style TargetType="Shell" ApplyToDerivedTypes="True">
+                <Setter Property="Shell.BackgroundColor" Value="{StaticResource Primary}" />
+                <Setter Property="Shell.ForegroundColor" Value="{StaticResource White}" />
+                <Setter Property="Shell.TitleColor" Value="{StaticResource White}" />
+                <Setter Property="Shell.DisabledColor" Value="{StaticResource Gray200}" />
+                <Setter Property="Shell.UnselectedColor" Value="{StaticResource Gray200}" />
+                <Setter Property="Shell.TabBarBackgroundColor" Value="{StaticResource Primary}" />
+                <Setter Property="Shell.TabBarForegroundColor" Value="{StaticResource White}"/>
+                <Setter Property="Shell.TabBarUnselectedColor" Value="{StaticResource Gray200}"/>
+                <Setter Property="Shell.TabBarTitleColor" Value="{StaticResource White}"/>
+            </Style>
+
+            <!-- Flyout styles -->
+            <Style TargetType="FlyoutItem" ApplyToDerivedTypes="True">
+                <Setter Property="Shell.BackgroundColor" Value="{StaticResource Primary}" />
+                <Setter Property="Shell.ForegroundColor" Value="{StaticResource White}" />
+            </Style>
+
+            <!-- Button styles -->
+            <Style TargetType="Button">
+                <Setter Property="TextColor" Value="White" />
+                <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+                <Setter Property="FontFamily" Value="OpenSansRegular"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="Padding" Value="14,10"/>
+                <Setter Property="VisualStateManager.VisualStateGroups">
+                    <VisualStateGroupList>
+                        <VisualStateGroup x:Name="CommonStates">
+                            <VisualState x:Name="Normal" />
+                            <VisualState x:Name="Disabled">
+                                <VisualState.Setters>
+                                    <Setter Property="TextColor" Value="{StaticResource Gray300}" />
+                                    <Setter Property="BackgroundColor" Value="{StaticResource Gray200}" />
+                                </VisualState.Setters>
+                            </VisualState>
+                            <VisualState x:Name="PointerOver">
+                                <VisualState.Setters>
+                                    <Setter Property="BackgroundColor" Value="{StaticResource Secondary}" />
+                                </VisualState.Setters>
+                            </VisualState>
+                        </VisualStateGroup>
+                    </VisualStateGroupList>
+                </Setter>
+            </Style>
+
         </ResourceDictionary>
     </Application.Resources>
 </Application>

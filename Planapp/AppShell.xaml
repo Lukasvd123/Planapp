@@ -1,0 +1,49 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="com.usagemeter.androidapp.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:com.usagemeter.androidapp.Components.Pages"
+    Title="Usage Meter"
+    FlyoutBehavior="Flyout">
+
+    <Shell.FlyoutHeader>
+        <Grid BackgroundColor="#667eea" HeightRequest="120">
+            <Label Text="📱 Usage Meter" 
+                   FontSize="24" 
+                   FontAttributes="Bold"
+                   TextColor="White"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center" />
+        </Grid>
+    </Shell.FlyoutHeader>
+
+    <!-- Home/Dashboard -->
+    <FlyoutItem Title="Dashboard" Icon="home.png">
+        <ShellContent Title="Dashboard" ContentTemplate="{DataTemplate local:Home}" Route="home" />
+    </FlyoutItem>
+
+    <!-- Rules Management -->
+    <FlyoutItem Title="Rules" Icon="rules.png">
+        <ShellContent Title="Rules" ContentTemplate="{DataTemplate local:Rules}" Route="rules" />
+    </FlyoutItem>
+
+    <!-- Android-specific pages -->
+    <FlyoutItem Title="App Usage" Icon="usage.png" IsVisible="{Binding IsAndroid}">
+        <ShellContent Title="App Usage" ContentTemplate="{DataTemplate local:AndroidUsage}" Route="android-usage" />
+    </FlyoutItem>
+
+    <!-- Settings -->
+    <FlyoutItem Title="Settings" Icon="settings.png">
+        <ShellContent Title="Settings" ContentTemplate="{DataTemplate local:Settings}" Route="settings" />
+    </FlyoutItem>
+
+    <!-- Debug/Test pages (only in debug builds) -->
+    <FlyoutItem Title="Testing" Icon="test.png" IsVisible="{Binding IsDebug}">
+        <Tab Title="Test Tools">
+            <ShellContent Title="Rule Test" ContentTemplate="{DataTemplate local:RuleTest}" Route="rule-test" />
+            <ShellContent Title="Launch Test" ContentTemplate="{DataTemplate local:LaunchTest}" Route="launch-test" />
+        </Tab>
+    </FlyoutItem>
+
+</Shell>

@@ -1,312 +1,117 @@
-﻿/* NUCLEAR NAVBAR CSS - ABSOLUTELY FORCE VISIBLE */
-
-/* Reset everything */
-* {
-    box-sizing: border-box;
-}
-
-/* Basic Layout */
-.page {
+﻿.page {
     position: relative;
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh;
 }
 
-.main-content {
+.sidebar {
+    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+    width: 260px;
+    height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+}
+
+    .sidebar:not(.collapse) {
+        transform: translateX(0);
+    }
+
+main {
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+    margin-left: 0;
+    transition: margin-left 0.3s ease-in-out;
 }
 
 .top-row {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-    color: white !important;
-    padding: 0.75rem 1rem !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 1rem !important;
-    min-height: 60px !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
-    position: relative !important;
-    z-index: 1001 !important;
+    background: #667eea;
+    justify-content: space-between;
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
 }
 
-.page-title {
-    margin: 0 !important;
-    font-size: 1.2rem !important;
-    font-weight: 600 !important;
-    flex: 1 !important;
-    text-align: center !important;
+    .top-row h1 {
+        color: white;
+        margin: 0;
+        font-size: 1.25rem;
+    }
+
+.navbar-toggler {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* NUCLEAR HAMBURGER MENU - IMPOSSIBLE TO HIDE */
-.navbar-toggler,
-button.navbar-toggler,
-.top-row .navbar-toggler,
-.top-row button.navbar-toggler,
-*[class*="navbar"] .navbar-toggler,
-*[class*="toggle"] .navbar-toggler,
-.navbar-toggler[style],
-.navbar-toggler[hidden],
-.navbar-toggler[style*="display"],
-.navbar-toggler[style*="visibility"],
-.navbar-toggler[style*="opacity"] {
-    /* FORCE DISPLAY */
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    /* FORCE POSITION */
-    position: relative !important;
-    z-index: 99999 !important;
-    /* FORCE SIZE & STYLE */
-    width: 50px !important;
-    height: 50px !important;
-    min-width: 50px !important;
-    min-height: 50px !important;
-    /* FORCE COLORS - VERY VISIBLE */
-    background: #ff0000 !important; /* BRIGHT RED */
-    border: 3px solid #ffffff !important; /* WHITE BORDER */
-    border-radius: 8px !important;
-    /* FORCE LAYOUT */
-    padding: 0.5rem !important;
-    cursor: pointer !important;
-    align-items: center !important;
-    justify-content: center !important;
-    order: -1 !important;
-    flex-shrink: 0 !important;
-    /* FORCE BEHAVIOR */
-    pointer-events: all !important;
-    user-select: none !important;
-    /* ANIMATIONS */
-    transition: all 0.2s ease !important;
-    transform: scale(1) !important;
+    .navbar-toggler:hover {
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+.navbar-toggler-icon {
+    display: inline-block;
+    width: 1.25em;
+    height: 1.25em;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.85%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 100%;
 }
 
-    /* MEGA OVERRIDE - Nuclear option */
-    .navbar-toggler[style*="display: none"] {
-        display: flex !important;
-    }
-
-    .navbar-toggler[style*="visibility: hidden"] {
-        visibility: visible !important;
-    }
-
-    .navbar-toggler[style*="opacity: 0"] {
-        opacity: 1 !important;
-    }
-
-    /* Hamburger Icon - FORCE VISIBLE */
-    .navbar-toggler-icon,
-    .navbar-toggler .navbar-toggler-icon,
-    .navbar-toggler > .navbar-toggler-icon,
-    .navbar-toggler span,
-    .navbar-toggler > span {
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        width: 30px !important;
-        height: 20px !important;
-        /* WHITE BARS ON RED BACKGROUND */
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 1%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='3' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
-        background-repeat: no-repeat !important;
-        background-position: center !important;
-        background-size: 100% !important;
-        background-color: transparent !important;
-    }
-
-    /* Hover effects */
-    .navbar-toggler:hover,
-    .navbar-toggler:focus,
-    .navbar-toggler.active {
-        background: #cc0000 !important; /* DARKER RED */
-        border-color: #ffffff !important;
-        outline: none !important;
-        transform: scale(1.1) !important;
-        box-shadow: 0 0 10px rgba(255,255,255,0.5) !important;
-    }
-
-/* Content area */
 .content {
-    flex: 1 !important;
-    overflow-y: auto !important;
     padding: 1rem !important;
-    background: #f8f9fa !important;
+    background: #f8f9fa;
+    min-height: calc(100vh - 3.5rem);
 }
 
-/* Mobile sidebar */
-.sidebar {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 300px !important;
-    height: 100vh !important;
-    background: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%) !important;
-    transform: translateX(-100%) !important;
-    transition: transform 0.3s ease !important;
-    z-index: 1002 !important;
-    box-shadow: 4px 0 20px rgba(0,0,0,0.3) !important;
-    overflow-y: auto !important;
-}
-
-    .sidebar.show {
-        transform: translateX(0) !important;
+/* Desktop Styles */
+@media (min-width: 768px) {
+    .sidebar {
+        position: static;
+        transform: translateX(0);
+        width: 260px;
+        height: 100vh;
     }
 
-/* Backdrop */
-.sidebar-backdrop {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    background: rgba(0, 0, 0, 0.5) !important;
-    z-index: 1001 !important;
-    backdrop-filter: blur(2px) !important;
-}
-
-/* Desktop layout - STILL SHOW HAMBURGER */
-@media (min-width: 1024px) {
     .page {
-        flex-direction: row !important;
+        flex-direction: row;
     }
 
-    .sidebar {
-        position: static !important;
-        transform: translateX(0) !important;
-        width: 280px !important;
-        box-shadow: none !important;
-        z-index: auto !important;
-    }
-
-    .sidebar-backdrop {
-        display: none !important;
-    }
-
-    /* FORCE HAMBURGER VISIBLE ON DESKTOP TOO */
-    .navbar-toggler {
-        display: flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-    }
-
-    .top-row {
-        justify-content: flex-start !important;
-    }
-
-    .page-title {
-        text-align: left !important;
-        margin-left: 1rem !important;
-    }
-}
-
-/* Tablet - FORCE HAMBURGER */
-@media (min-width: 768px) and (max-width: 1023px) {
-    .sidebar {
-        width: 320px !important;
+    main {
+        margin-left: 0;
+        flex: 1;
     }
 
     .navbar-toggler {
-        display: flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
+        display: none;
     }
 }
 
-/* Small mobile - FORCE HAMBURGER */
-@media (max-width: 480px) {
-    .content {
-        padding: 0.5rem !important;
+/* Mobile Styles */
+@media (max-width: 767.98px) {
+    .sidebar:not(.collapse) + main {
+        margin-left: 0;
     }
 
-    .top-row {
-        min-height: 56px !important;
-        padding: 0.5rem 1rem !important;
+    /* Backdrop */
+    .sidebar:not(.collapse)::after {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 260px;
+        width: calc(100vw - 260px);
+        height: 100vh;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: -1;
     }
-
-    .page-title {
-        font-size: 1.1rem !important;
-    }
-
-    .sidebar {
-        width: 280px !important;
-    }
-
-    .navbar-toggler {
-        width: 45px !important;
-        height: 45px !important;
-    }
-}
-
-/* ULTIMATE NUCLEAR OVERRIDES */
-html .navbar-toggler,
-body .navbar-toggler,
-div .navbar-toggler,
-main .navbar-toggler,
-section .navbar-toggler,
-article .navbar-toggler,
-header .navbar-toggler,
-nav .navbar-toggler {
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    background: red !important;
-}
-
-/* Framework overrides */
-.blazor-component .navbar-toggler,
-.maui-blazor .navbar-toggler,
-.maui-app .navbar-toggler {
-    display: flex !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-}
-
-/* Accessibility & High contrast */
-@media (prefers-contrast: high) {
-    .navbar-toggler {
-        border-color: white !important;
-        background: red !important;
-        box-shadow: 0 0 0 2px white !important;
-    }
-}
-
-.navbar-toggler:focus-visible {
-    outline: 3px solid white !important;
-    outline-offset: 2px !important;
-}
-
-/* Touch improvements */
-@media (pointer: coarse) {
-    .navbar-toggler {
-        min-width: 50px !important;
-        min-height: 50px !important;
-        touch-action: manipulation !important;
-    }
-}
-
-/* Print media - still show */
-@media print {
-    .navbar-toggler {
-        display: flex !important;
-        visibility: visible !important;
-    }
-}
-
-/* FINAL NUCLEAR OPTION - If NOTHING else works */
-.top-row::before {
-    content: "☰";
-    position: absolute !important;
-    left: 10px !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important;
-    font-size: 2rem !important;
-    color: white !important;
-    background: red !important;
-    padding: 0.5rem !important;
-    border-radius: 4px !important;
-    cursor: pointer !important;
-    z-index: 99999 !important;
 }
