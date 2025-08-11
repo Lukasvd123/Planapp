@@ -126,8 +126,28 @@ namespace com.usagemeter.androidapp
         {
             try
             {
-                var serviceProvider = IPlatformApplication.Current?.Services;
-                if (serviceProvider == null) return;
+                // More defensive service provider access
+                IServiceProvider? serviceProvider = null;
+
+                try
+                {
+                    var platformApp = IPlatformApplication.Current;
+                    if (platformApp != null)
+                    {
+                        serviceProvider = platformApp.Services;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Could not get service provider: {ex.Message}");
+                    return;
+                }
+
+                if (serviceProvider == null)
+                {
+                    System.Diagnostics.Debug.WriteLine("Service provider is null");
+                    return;
+                }
 
                 var settingsService = serviceProvider.GetService<Services.ISettingsService>();
                 if (settingsService != null)
@@ -154,7 +174,23 @@ namespace com.usagemeter.androidapp
             {
                 System.Diagnostics.Debug.WriteLine($"TriggerRuleBlockAsync called for rule: {ruleId}");
 
-                var serviceProvider = IPlatformApplication.Current?.Services;
+                // More defensive service provider access
+                IServiceProvider? serviceProvider = null;
+
+                try
+                {
+                    var platformApp = IPlatformApplication.Current;
+                    if (platformApp != null)
+                    {
+                        serviceProvider = platformApp.Services;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Could not get service provider: {ex.Message}");
+                    return;
+                }
+
                 if (serviceProvider == null)
                 {
                     System.Diagnostics.Debug.WriteLine("Service provider not available");
@@ -194,7 +230,24 @@ namespace com.usagemeter.androidapp
         {
             try
             {
-                var serviceProvider = IPlatformApplication.Current?.Services;
+                // More defensive service access
+                IServiceProvider? serviceProvider = null;
+
+                try
+                {
+                    var platformApp = IPlatformApplication.Current;
+                    if (platformApp != null)
+                    {
+                        serviceProvider = platformApp.Services;
+                    }
+                }
+                catch
+                {
+                    // If we can't get services, just allow back navigation
+                    base.OnBackPressed();
+                    return;
+                }
+
                 var blockService = serviceProvider?.GetService<Services.IRuleBlockService>();
 
                 if (blockService?.IsBlocking == true)

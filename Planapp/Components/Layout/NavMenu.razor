@@ -1,4 +1,6 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+﻿@using Microsoft.AspNetCore.Components.Routing
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">📱 Usage Meter</a>
     </div>
@@ -49,6 +51,11 @@
             <div class="nav-item px-3">
                 <NavLink class="nav-link" href="launch-test">
                     <span class="bi bi-launch-test-nav-menu" aria-hidden="true"></span> Launch Test
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="app-launcher-test">
+                    <span class="bi bi-launch-test-nav-menu" aria-hidden="true"></span> App Launcher Test
                 </NavLink>
             </div>
         }

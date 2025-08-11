@@ -65,11 +65,13 @@ namespace com.usagemeter.androidapp
                 builder.Logging.SetMinimumLevel(LogLevel.Information);
 #endif
 
-                // Core Services with individual error handling
+                // Core Services with individual error handling and explicit interface/implementation pairs
                 try
                 {
                     System.Diagnostics.Debug.WriteLine("Registering core services...");
-                    builder.Services.AddSingleton<ISettingsService, SettingsService>();
+
+                    // Register with explicit interface mapping to avoid casting issues
+                    builder.Services.AddSingleton<ISettingsService>(provider => new SettingsService());
                     System.Diagnostics.Debug.WriteLine("✓ Settings service registered");
                 }
                 catch (Exception ex)
@@ -78,27 +80,28 @@ namespace com.usagemeter.androidapp
                     throw;
                 }
 
-                // Platform-specific services with error handling
+                // Platform-specific services with explicit interface mappings
                 try
                 {
                     System.Diagnostics.Debug.WriteLine("Registering platform-specific services...");
 #if ANDROID
-                    builder.Services.AddSingleton<IRuleService, AndroidRuleService>();
+                    builder.Services.AddSingleton<IRuleService>(provider => new AndroidRuleService());
                     System.Diagnostics.Debug.WriteLine("✓ Android rule service registered");
 
-                    builder.Services.AddSingleton<IUsageStatsService, UsageStatsServiceImpl>();
+                    builder.Services.AddSingleton<IUsageStatsService>(provider => new UsageStatsServiceImpl());
                     System.Diagnostics.Debug.WriteLine("✓ Android usage stats service registered");
 
-                    builder.Services.AddSingleton<IAppLaunchMonitor, AndroidAppLaunchMonitor>();
+                    builder.Services.AddSingleton<IAppLaunchMonitor>(provider =>
+                        new AndroidAppLaunchMonitor(provider.GetRequiredService<ILogger<AndroidAppLaunchMonitor>>()));
                     System.Diagnostics.Debug.WriteLine("✓ Android app launch monitor registered");
 #else
-                    builder.Services.AddSingleton<IRuleService, DefaultRuleService>();
+                    builder.Services.AddSingleton<IRuleService>(provider => new DefaultRuleService());
                     System.Diagnostics.Debug.WriteLine("✓ Default rule service registered");
                     
-                    builder.Services.AddSingleton<IUsageStatsService, DefaultUsageStatsService>();
+                    builder.Services.AddSingleton<IUsageStatsService>(provider => new DefaultUsageStatsService());
                     System.Diagnostics.Debug.WriteLine("✓ Default usage stats service registered");
                     
-                    builder.Services.AddSingleton<IAppLaunchMonitor, DefaultAppLaunchMonitor>();
+                    builder.Services.AddSingleton<IAppLaunchMonitor>(provider => new DefaultAppLaunchMonitor());
                     System.Diagnostics.Debug.WriteLine("✓ Default app launch monitor registered");
 #endif
                 }
@@ -108,14 +111,23 @@ namespace com.usagemeter.androidapp
                     throw;
                 }
 
-                // Business logic services with error handling
+                // Business logic services with explicit interface mappings
                 try
                 {
                     System.Diagnostics.Debug.WriteLine("Registering business logic services...");
-                    builder.Services.AddSingleton<IRuleBlockService, Services.RuleBlockService>();
+
+                    builder.Services.AddSingleton<IRuleBlockService>(provider =>
+                        new RuleBlockService(
+                            provider.GetRequiredService<ILogger<RuleBlockService>>(),
+                            provider.GetRequiredService<ISettingsService>()
+                        ));
                     System.Diagnostics.Debug.WriteLine("✓ Rule block service registered");
 
-                    builder.Services.AddSingleton<RuleMonitorService>();
+                    builder.Services.AddSingleton<RuleMonitorService>(provider =>
+                        new RuleMonitorService(
+                            provider,
+                            provider.GetRequiredService<ILogger<RuleMonitorService>>()
+                        ));
                     System.Diagnostics.Debug.WriteLine("✓ Rule monitor service registered");
                 }
                 catch (Exception ex)
@@ -146,8 +158,6 @@ namespace com.usagemeter.androidapp
 
                     throw; // Re-throw to show system error
                 }
-
-                // Removed the problematic post-build initialization that was causing the cast exception
 
                 System.Diagnostics.Debug.WriteLine("=== MAUI PROGRAM COMPLETED SUCCESSFULLY ===");
                 return app;

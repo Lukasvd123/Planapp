@@ -78,11 +78,32 @@ namespace com.usagemeter.androidapp.Platforms.Android
 
                 while (retries < maxRetries)
                 {
-                    var app = MauiApplication.Current;
-                    if (app != null)
+                    // More defensive service provider access
+                    IServiceProvider? serviceProvider = null;
+
+                    try
                     {
-                        var serviceProvider = IPlatformApplication.Current?.Services;
-                        if (serviceProvider != null)
+                        var app = MauiApplication.Current;
+                        if (app != null)
+                        {
+                            var platformApp = IPlatformApplication.Current;
+                            if (platformApp != null)
+                            {
+                                serviceProvider = platformApp.Services;
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"Error getting service provider (retry {retries}): {ex.Message}");
+                        retries++;
+                        await Task.Delay(3000);
+                        continue;
+                    }
+
+                    if (serviceProvider != null)
+                    {
+                        try
                         {
                             _logger = serviceProvider.GetService<ILogger<AndroidForegroundService>>();
                             _ruleMonitor = serviceProvider.GetService<RuleMonitorService>();
@@ -93,35 +114,42 @@ namespace com.usagemeter.androidapp.Platforms.Android
                                 _logger?.LogInformation("Services found - starting enhanced monitoring");
 
                                 var settingsService = serviceProvider.GetService<ISettingsService>();
-                                var settings = await settingsService?.GetSettingsAsync()!;
-
-                                if (settings?.AllRulesEnabled == true)
+                                if (settingsService != null)
                                 {
-                                    // Start both monitoring services
-                                    await _appLaunchMonitor.StartMonitoringAsync();
-                                    _logger?.LogInformation($"App launch monitor started. IsMonitoring: {_appLaunchMonitor.IsMonitoring}");
+                                    var settings = await settingsService.GetSettingsAsync();
 
-                                    await _ruleMonitor.StartAsync(_cancellationTokenSource?.Token ?? CancellationToken.None);
-                                    _logger?.LogInformation("Enhanced rule monitor started");
+                                    if (settings?.AllRulesEnabled == true)
+                                    {
+                                        // Start both monitoring services
+                                        await _appLaunchMonitor.StartMonitoringAsync();
+                                        _logger?.LogInformation($"App launch monitor started. IsMonitoring: {_appLaunchMonitor.IsMonitoring}");
 
-                                    var activeRulesCount = await GetActiveRulesCount(serviceProvider);
-                                    UpdateNotification("Enhanced Monitoring Active",
-                                        $"Monitoring launches + usage for {activeRulesCount} active rules");
+                                        await _ruleMonitor.StartAsync(_cancellationTokenSource?.Token ?? CancellationToken.None);
+                                        _logger?.LogInformation("Enhanced rule monitor started");
 
-                                    AndroidNotificationHelper.ShowAppLaunchNotification(
-                                        "Enhanced Background Service Started",
-                                        "Service actively monitoring app launches and usage limits"
-                                    );
+                                        var activeRulesCount = await GetActiveRulesCount(serviceProvider);
+                                        UpdateNotification("Enhanced Monitoring Active",
+                                            $"Monitoring launches + usage for {activeRulesCount} active rules");
 
-                                    return; // Success
-                                }
-                                else
-                                {
-                                    UpdateNotification("Monitoring Disabled", "Rules are disabled in settings");
-                                    _logger?.LogInformation("Rules are disabled - monitoring not started");
-                                    return;
+                                        AndroidNotificationHelper.ShowAppLaunchNotification(
+                                            "Enhanced Background Service Started",
+                                            "Service actively monitoring app launches and usage limits"
+                                        );
+
+                                        return; // Success
+                                    }
+                                    else
+                                    {
+                                        UpdateNotification("Monitoring Disabled", "Rules are disabled in settings");
+                                        _logger?.LogInformation("Rules are disabled - monitoring not started");
+                                        return;
+                                    }
                                 }
                             }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger?.LogError(ex, $"Error initializing services (retry {retries})");
                         }
                     }
 

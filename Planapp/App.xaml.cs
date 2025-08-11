@@ -43,49 +43,68 @@ namespace com.usagemeter.androidapp
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("=== CREATE WINDOW START (SHELL VERSION) ===");
+                System.Diagnostics.Debug.WriteLine("=== CREATE WINDOW START (BLAZOR ONLY VERSION) ===");
 
-                // Try to get logger (might fail if services aren't ready)
+                // Safe service provider access
                 try
                 {
-                    var serviceProvider = Handler?.MauiContext?.Services;
-                    _logger = serviceProvider?.GetService<ILogger<App>>();
-                    System.Diagnostics.Debug.WriteLine("Logger obtained successfully");
+                    // More defensive approach to getting services
+                    if (Handler?.MauiContext != null)
+                    {
+                        var services = Handler.MauiContext.Services;
+                        if (services != null)
+                        {
+                            _logger = services.GetService<ILogger<App>>();
+                            System.Diagnostics.Debug.WriteLine("Logger obtained successfully");
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine($"Cannot get logger (non-critical): {ex.Message}");
                 }
 
-                // Create window with Shell as MainPage
-                System.Diagnostics.Debug.WriteLine("Creating Shell-based window...");
-                var window = new Window(new AppShell())
+                // Create window with MainPage directly (no Shell)
+                System.Diagnostics.Debug.WriteLine("Creating BlazorWebView-based window...");
+
+                MainPage mainPage;
+                try
+                {
+                    mainPage = new MainPage();
+                }
+                catch (Exception pageEx)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error creating MainPage: {pageEx}");
+                    throw;
+                }
+
+                var window = new Window(mainPage)
                 {
                     Title = "Usage Meter"
                 };
-                System.Diagnostics.Debug.WriteLine("Shell window created successfully");
+                System.Diagnostics.Debug.WriteLine("BlazorWebView window created successfully");
 
                 // Add event handlers
                 window.Created += (s, e) =>
                 {
-                    System.Diagnostics.Debug.WriteLine("=== SHELL WINDOW CREATED EVENT ===");
-                    _logger?.LogInformation("Shell window created successfully");
+                    System.Diagnostics.Debug.WriteLine("=== BLAZOR WINDOW CREATED EVENT ===");
+                    _logger?.LogInformation("BlazorWebView window created successfully");
                 };
 
                 window.Destroying += (s, e) =>
                 {
-                    System.Diagnostics.Debug.WriteLine("=== SHELL WINDOW DESTROYING EVENT ===");
-                    _logger?.LogInformation("Shell window destroying");
+                    System.Diagnostics.Debug.WriteLine("=== BLAZOR WINDOW DESTROYING EVENT ===");
+                    _logger?.LogInformation("BlazorWebView window destroying");
                 };
 
-                System.Diagnostics.Debug.WriteLine("=== CREATE WINDOW COMPLETED SUCCESSFULLY (SHELL) ===");
-                _logger?.LogInformation("Shell-based main window created successfully");
+                System.Diagnostics.Debug.WriteLine("=== CREATE WINDOW COMPLETED SUCCESSFULLY (BLAZOR) ===");
+                _logger?.LogInformation("BlazorWebView-based main window created successfully");
 
                 return window;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"=== FATAL ERROR CREATING SHELL WINDOW: {ex} ===");
+                System.Diagnostics.Debug.WriteLine($"=== FATAL ERROR CREATING BLAZOR WINDOW: {ex} ===");
                 System.Diagnostics.Debug.WriteLine($"Exception type: {ex.GetType().Name}");
                 System.Diagnostics.Debug.WriteLine($"Message: {ex.Message}");
                 System.Diagnostics.Debug.WriteLine($"Stack trace: {ex.StackTrace}");
@@ -93,31 +112,19 @@ namespace com.usagemeter.androidapp
                 // Try to write crash log
                 try
                 {
-                    var crashLog = $"CREATE SHELL WINDOW CRASH at {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n" +
+                    var crashLog = $"CREATE BLAZOR WINDOW CRASH at {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n" +
                                   $"Type: {ex.GetType().Name}\n" +
                                   $"Message: {ex.Message}\n" +
                                   $"Stack: {ex.StackTrace}\n\n";
 
                     System.IO.File.WriteAllText(
-                        System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "create_shell_window_crash.log"),
+                        System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "create_blazor_window_crash.log"),
                         crashLog
                     );
                 }
                 catch { }
 
-                // Try to create fallback window with basic MainPage
-                try
-                {
-                    System.Diagnostics.Debug.WriteLine("Attempting emergency fallback to basic MainPage...");
-
-                    var fallbackPage = new MainPage();
-                    return new Window(fallbackPage) { Title = "Usage Meter - Fallback" };
-                }
-                catch (Exception fallbackEx)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Even fallback MainPage failed: {fallbackEx}");
-                    throw; // Re-throw original exception
-                }
+                throw; // Re-throw original exception
             }
         }
 
@@ -125,9 +132,9 @@ namespace com.usagemeter.androidapp
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("=== APP ONSTART (SHELL) ===");
+                System.Diagnostics.Debug.WriteLine("=== APP ONSTART (BLAZOR) ===");
                 base.OnStart();
-                _logger?.LogInformation("Shell-based app OnStart called");
+                _logger?.LogInformation("BlazorWebView-based app OnStart called");
             }
             catch (Exception ex)
             {
@@ -139,9 +146,9 @@ namespace com.usagemeter.androidapp
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("=== APP ONSLEEP (SHELL) ===");
+                System.Diagnostics.Debug.WriteLine("=== APP ONSLEEP (BLAZOR) ===");
                 base.OnSleep();
-                _logger?.LogInformation("Shell-based app OnSleep called");
+                _logger?.LogInformation("BlazorWebView-based app OnSleep called");
             }
             catch (Exception ex)
             {
@@ -153,9 +160,9 @@ namespace com.usagemeter.androidapp
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("=== APP ONRESUME (SHELL) ===");
+                System.Diagnostics.Debug.WriteLine("=== APP ONRESUME (BLAZOR) ===");
                 base.OnResume();
-                _logger?.LogInformation("Shell-based app OnResume called");
+                _logger?.LogInformation("BlazorWebView-based app OnResume called");
             }
             catch (Exception ex)
             {

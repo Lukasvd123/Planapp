@@ -1,10 +1,52 @@
 ﻿@namespace com.usagemeter.androidapp.Components
+@using Microsoft.AspNetCore.Components.Routing
 
 <Router AppAssembly="@typeof(Routes).Assembly">
     <Found Context="routeData">
-        <RouteView RouteData="@routeData" />
+        <RouteView RouteData="@routeData" DefaultLayout="@typeof(Components.Layout.MainLayout)" />
+        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
     </Found>
     <NotFound>
-        <p>Sorry, there's nothing at this address.</p>
+        <PageTitle>Not found</PageTitle>
+        <LayoutView Layout="@typeof(Components.Layout.MainLayout)">
+            <div class="not-found-container">
+                <h1>🚫 Page Not Found</h1>
+                <p>Sorry, there's nothing at this address.</p>
+                <a href="/" class="btn btn-primary">Go Home</a>
+            </div>
+        </LayoutView>
     </NotFound>
 </Router>
+
+<style>
+    .not-found-container {
+        text-align: center;
+        padding: 3rem 1rem;
+    }
+
+        .not-found-container h1 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #333;
+        }
+
+        .not-found-container p {
+            margin-bottom: 2rem;
+            color: #666;
+        }
+
+    .btn {
+        display: inline-block;
+        padding: 0.75rem 1.5rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: transform 0.2s ease;
+    }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+</style>
