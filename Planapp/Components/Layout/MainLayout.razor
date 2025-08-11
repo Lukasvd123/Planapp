@@ -1,15 +1,17 @@
 ﻿@inherits LayoutComponentBase
 @using Microsoft.Extensions.Logging
 @inject ILogger<MainLayout> Logger
+@inject IJSRuntime JSRuntime
+@implements IDisposable
 
 <div class="page">
     <div class="sidebar @NavMenuCssClass">
-        <NavMenu />
+        <NavMenu @ref="navMenuRef" OnMenuItemClick="@CloseNavMenu" />
     </div>
 
     <main>
         <div class="top-row px-4">
-            <button class="navbar-toggler" @onclick="ToggleNavMenu">
+            <button class="navbar-toggler" @onclick="ToggleNavMenu" type="button" aria-expanded="@(!collapseNavMenu)" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <h1>📱 Usage Meter</h1>
@@ -21,14 +23,82 @@
     </main>
 </div>
 
+<!-- Mobile backdrop -->
+@if (!collapseNavMenu)
+{
+        <div class="mobile-backdrop" @onclick="CloseNavMenu"></div>
+}
+
 @code {
     private bool collapseNavMenu = true;
+    private NavMenu? navMenuRef;
+    private IJSObjectReference? jsModule;
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                // Load JavaScript module for handling window resize
+                jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>(
+                    "import", "./js/mainlayout.js");
+
+                // Initialize responsive behavior
+                await jsModule.InvokeVoidAsync("initializeMainLayout",
+                    DotNetObjectReference.Create(this));
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Could not load MainLayout JavaScript module");
+            }
+        }
+    }
 
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
-        Logger.LogInformation($"Nav menu toggled: {!collapseNavMenu}");
+        Logger.LogDebug($"Nav menu toggled: {!collapseNavMenu}");
+        StateHasChanged();
+    }
+
+    private void CloseNavMenu()
+    {
+        if (!collapseNavMenu)
+        {
+            collapseNavMenu = true;
+            Logger.LogDebug("Nav menu closed");
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public void OnWindowResize(bool isMobile)
+    {
+        // Auto-close menu on desktop, keep current state on mobile
+        if (!isMobile && !collapseNavMenu)
+        {
+            // Don't auto-close on desktop, let user control it
+        }
+        else if (isMobile && !collapseNavMenu)
+        {
+            // Keep menu state on mobile
+        }
+
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        try
+        {
+            jsModule?.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Error disposing MainLayout resources");
+        }
     }
 }

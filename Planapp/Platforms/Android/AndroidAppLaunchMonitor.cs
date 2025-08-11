@@ -21,9 +21,10 @@ namespace com.usagemeter.androidapp.Platforms.Android
         private readonly Dictionary<string, DateTime> _lastSeenActive = new();
         private DateTime _lastCheckTime = DateTime.Now;
         private int _consecutiveErrors = 0;
-        private const int MAX_CONSECUTIVE_ERRORS = 10;
-        private const int CHECK_INTERVAL_MS = 2000; // Check every 2 seconds for immediate response
-        private const int APP_LAUNCH_DETECTION_WINDOW_SECONDS = 10; // Detect app launches in last 10 seconds
+        private const int MAX_CONSECUTIVE_ERRORS = 5;
+        private const int CHECK_INTERVAL_MS = 1000; // Check every 1 second for better responsiveness
+        private const int APP_LAUNCH_DETECTION_WINDOW_SECONDS = 5; // Detect app launches in last 5 seconds
+        private string? _lastForegroundApp = null;
 
         public event EventHandler<AppLaunchEventArgs>? AppLaunched;
         public bool IsMonitoring { get; private set; }
@@ -41,7 +42,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 return;
             }
 
-            _logger.LogInformation("Starting IMMEDIATE app launch monitoring (NO COOLDOWNS)");
+            _logger.LogInformation("Starting enhanced app launch monitoring...");
 
             try
             {
@@ -50,7 +51,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
                     _logger.LogError("Cannot start monitoring - missing required permissions");
                     AndroidNotificationHelper.ShowAppLaunchNotification(
                         "Permission Error",
-                        "Usage stats permission required"
+                        "Usage stats permission required for app monitoring"
                     );
                     return;
                 }
@@ -58,14 +59,20 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 _cancellationTokenSource = new CancellationTokenSource();
                 IsMonitoring = true;
                 _consecutiveErrors = 0;
+                _lastCheckTime = DateTime.Now;
+                _lastSeenActive.Clear();
+                _lastForegroundApp = null;
+
+                // Initialize current foreground app
+                await InitializeCurrentState();
 
                 AndroidNotificationHelper.ShowAppLaunchNotification(
-                    "Immediate Monitoring Started",
-                    "Monitoring app launches with immediate triggers - NO COOLDOWNS"
+                    "Enhanced Monitoring Started",
+                    "Actively monitoring app launches and switches"
                 );
 
-                // Start immediate monitoring - every app launch triggers rules
-                _ = Task.Run(() => ImmediateLaunchMonitorLoop(_cancellationTokenSource.Token), _cancellationTokenSource.Token);
+                // Start monitoring loop
+                _ = Task.Run(() => MonitoringLoop(_cancellationTokenSource.Token), _cancellationTokenSource.Token);
 
                 await Task.CompletedTask;
             }
@@ -88,7 +95,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 return;
             }
 
-            _logger.LogInformation("Stopping immediate app launch monitoring");
+            _logger.LogInformation("Stopping app launch monitoring");
 
             _cancellationTokenSource?.Cancel();
             _cancellationTokenSource?.Dispose();
@@ -96,10 +103,11 @@ namespace com.usagemeter.androidapp.Platforms.Android
 
             IsMonitoring = false;
             _lastSeenActive.Clear();
+            _lastForegroundApp = null;
 
             AndroidNotificationHelper.ShowAppLaunchNotification(
                 "Monitoring Stopped",
-                "App monitoring has been stopped"
+                "App launch monitoring has been stopped"
             );
 
             await Task.CompletedTask;
@@ -119,6 +127,12 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 var hasUsagePermission = HasUsageStatsPermission();
                 _logger.LogInformation($"Usage stats permission: {hasUsagePermission}");
 
+                if (!hasUsagePermission)
+                {
+                    _logger.LogWarning("Usage stats permission not granted");
+                    // The service will show notification about missing permission
+                }
+
                 return hasUsagePermission;
             }
             catch (Exception ex)
@@ -135,6 +149,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 if (context == null) return false;
 
+                // Check AppOps permission
                 var appOps = context.GetSystemService(Context.AppOpsService) as AppOpsManager;
                 if (appOps != null)
                 {
@@ -149,11 +164,12 @@ namespace com.usagemeter.androidapp.Platforms.Android
                     }
                 }
 
+                // Verify by actually trying to get usage stats
                 var usageStatsManager = context.GetSystemService(Context.UsageStatsService) as UsageStatsManager;
                 if (usageStatsManager == null) return false;
 
                 var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
-                var startTime = endTime - (1000L * 60 * 60);
+                var startTime = endTime - (1000L * 60 * 5); // 5 minutes
 
                 var stats = usageStatsManager.QueryUsageStats(UsageStatsInterval.Daily, startTime, endTime);
                 return stats != null && stats.Count > 0;
@@ -165,9 +181,27 @@ namespace com.usagemeter.androidapp.Platforms.Android
             }
         }
 
-        private async Task ImmediateLaunchMonitorLoop(CancellationToken cancellationToken)
+        private async Task InitializeCurrentState()
         {
-            _logger.LogInformation("Immediate launch monitoring started (2s intervals, NO COOLDOWNS)");
+            try
+            {
+                var currentApp = await GetCurrentForegroundApp();
+                if (!string.IsNullOrEmpty(currentApp))
+                {
+                    _lastForegroundApp = currentApp;
+                    _lastSeenActive[currentApp] = DateTime.Now;
+                    _logger.LogInformation($"Initial foreground app: {currentApp}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error initializing current state");
+            }
+        }
+
+        private async Task MonitoringLoop(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("Enhanced app launch monitoring loop started");
 
             try
             {
@@ -175,20 +209,25 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 {
                     try
                     {
-                        await CheckForImmediateAppLaunches();
+                        await CheckForAppSwitches();
                         _consecutiveErrors = 0;
                     }
                     catch (Exception ex)
                     {
                         _consecutiveErrors++;
-                        _logger.LogError(ex, $"Error checking app launches (consecutive errors: {_consecutiveErrors})");
+                        _logger.LogError(ex, $"Error checking app switches (consecutive errors: {_consecutiveErrors})");
 
                         if (_consecutiveErrors >= MAX_CONSECUTIVE_ERRORS)
                         {
                             _logger.LogError("Too many consecutive errors, stopping monitoring");
+                            AndroidNotificationHelper.ShowAppLaunchNotification(
+                                "Monitoring Error",
+                                "Too many errors - monitoring stopped"
+                            );
                             break;
                         }
 
+                        // Wait longer after errors
                         await Task.Delay(5000, cancellationToken);
                         continue;
                     }
@@ -198,95 +237,176 @@ namespace com.usagemeter.androidapp.Platforms.Android
             }
             catch (SystemOperationCanceledException)
             {
-                _logger.LogInformation("Immediate launch monitoring cancelled");
+                _logger.LogInformation("App launch monitoring cancelled");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Immediate launch monitoring error");
+                _logger.LogError(ex, "App launch monitoring error");
             }
         }
 
-        private async Task CheckForImmediateAppLaunches()
+        private async Task CheckForAppSwitches()
+        {
+            try
+            {
+                var currentApp = await GetCurrentForegroundApp();
+
+                if (string.IsNullOrEmpty(currentApp))
+                {
+                    // No current app detected - this is normal (home screen, etc.)
+                    return;
+                }
+
+                // Check if this is a new app switch
+                if (currentApp != _lastForegroundApp && !string.IsNullOrEmpty(currentApp))
+                {
+                    var appName = UsageStatsHelper.GetAppName(currentApp);
+                    var launchTime = DateTime.Now;
+
+                    // Validate this is a legitimate app launch
+                    if (IsValidAppLaunch(currentApp, appName, launchTime))
+                    {
+                        _logger.LogInformation($"🚀 APP SWITCH DETECTED: {appName} ({currentApp}) at {launchTime:HH:mm:ss}");
+
+                        _lastSeenActive[currentApp] = launchTime;
+                        _lastForegroundApp = currentApp;
+
+                        AndroidNotificationHelper.ShowAppLaunchNotification(
+                            $"App Switch: {appName}",
+                            $"Switched to {appName} at {launchTime:HH:mm:ss}"
+                        );
+
+                        // Fire the app launched event
+                        AppLaunched?.Invoke(this, new AppLaunchEventArgs
+                        {
+                            PackageName = currentApp,
+                            AppName = appName,
+                            LaunchedAt = launchTime
+                        });
+                    }
+                    else
+                    {
+                        _logger.LogDebug($"Ignoring app switch to {appName} (filtered out)");
+                    }
+                }
+
+                // Update last check time
+                _lastCheckTime = DateTime.Now;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking app switches");
+                throw;
+            }
+        }
+
+        private async Task<string?> GetCurrentForegroundApp()
         {
             try
             {
                 var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
-                if (context == null) return;
+                if (context == null) return null;
 
                 var usageStatsManager = context.GetSystemService(Context.UsageStatsService) as UsageStatsManager;
-                if (usageStatsManager == null) return;
+                if (usageStatsManager == null) return null;
 
                 var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
-                var startTime = endTime - (CHECK_INTERVAL_MS + 3000); // Check events in the last check interval + buffer
+                var startTime = endTime - (CHECK_INTERVAL_MS * 3); // Look back 3 intervals
 
-                // Check recent usage events for activity transitions
+                // Method 1: Use usage events to find the most recent activity resume
                 var usageEvents = usageStatsManager.QueryEvents(startTime, endTime);
-                var recentLaunches = new List<(string PackageName, DateTime LaunchTime)>();
+                string? mostRecentApp = null;
+                long mostRecentTime = 0;
 
                 while (usageEvents.HasNextEvent)
                 {
                     var eventObj = new UsageEvents.Event();
                     usageEvents.GetNextEvent(eventObj);
 
-                    if (eventObj.EventType == UsageEventType.ActivityResumed)
+                    if (eventObj.EventType == UsageEventType.ActivityResumed &&
+                        eventObj.TimeStamp > mostRecentTime)
                     {
-                        var packageName = eventObj.PackageName;
-                        var eventTime = DateTimeOffset.FromUnixTimeMilliseconds(eventObj.TimeStamp).DateTime;
-
-                        // Check if this is a valid app launch (not our own app)
-                        if (IsValidAppLaunch(packageName, eventTime))
-                        {
-                            recentLaunches.Add((packageName, eventTime));
-                            _lastSeenActive[packageName] = eventTime;
-                        }
+                        mostRecentApp = eventObj.PackageName;
+                        mostRecentTime = eventObj.TimeStamp;
                     }
                 }
 
-                // Process ALL launches IMMEDIATELY (no cooldown check)
-                foreach (var (packageName, launchTime) in recentLaunches)
+                if (!string.IsNullOrEmpty(mostRecentApp))
                 {
-                    var appName = UsageStatsHelper.GetAppName(packageName);
-
-                    _logger.LogInformation($"🚀 IMMEDIATE LAUNCH DETECTED: {appName} ({packageName}) at {launchTime:HH:mm:ss}");
-
-                    AndroidNotificationHelper.ShowAppLaunchNotification(
-                        $"App Launch: {appName}",
-                        $"Detected launch at {launchTime:HH:mm:ss} - checking rules immediately"
-                    );
-
-                    AppLaunched?.Invoke(this, new AppLaunchEventArgs
-                    {
-                        PackageName = packageName,
-                        AppName = appName,
-                        LaunchedAt = launchTime
-                    });
+                    return mostRecentApp;
                 }
+
+                // Method 2: Fallback - use usage stats to find the app with most recent activity
+                var stats = usageStatsManager.QueryUsageStats(UsageStatsInterval.Daily, startTime, endTime);
+                if (stats != null && stats.Count > 0)
+                {
+                    var recentApp = stats
+                        .Where(s => s != null && !string.IsNullOrEmpty(s.PackageName) && s.LastTimeUsed > 0)
+                        .OrderByDescending(s => s.LastTimeUsed)
+                        .FirstOrDefault();
+
+                    return recentApp?.PackageName;
+                }
+
+                return null;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error checking immediate app launches");
-                throw;
+                _logger.LogError(ex, "Error getting current foreground app");
+                return null;
             }
 
             await Task.CompletedTask;
         }
 
-        private bool IsValidAppLaunch(string packageName, DateTime eventTime)
+        private bool IsValidAppLaunch(string packageName, string appName, DateTime launchTime)
         {
-            // Skip our own app
-            if (packageName == "com.usagemeter.androidapp") return false;
-
-            // Skip system launcher apps
-            if (packageName.Contains("launcher")) return false;
-
-            // Only consider launches in the last detection window
-            var launchAge = DateTime.Now - eventTime;
-            if (launchAge.TotalSeconds > APP_LAUNCH_DETECTION_WINDOW_SECONDS)
+            try
             {
+                // Skip our own app
+                if (packageName == "com.usagemeter.androidapp") return false;
+
+                // Skip system apps that users typically don't interact with
+                var systemApps = new[]
+                {
+                    "com.android.systemui",
+                    "com.android.launcher",
+                    "com.android.launcher3",
+                    "com.google.android.launcher",
+                    "com.android.settings",
+                    "android",
+                    "com.android.phone",
+                    "com.android.keyguard"
+                };
+
+                if (systemApps.Any(sys => packageName.Contains(sys, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return false;
+                }
+
+                // Skip if app name is empty or generic
+                if (string.IsNullOrWhiteSpace(appName) || appName == packageName)
+                {
+                    return false;
+                }
+
+                // Skip very rapid switches (less than 500ms)
+                if (_lastSeenActive.TryGetValue(packageName, out var lastSeen))
+                {
+                    var timeSinceLastSeen = launchTime - lastSeen;
+                    if (timeSinceLastSeen.TotalMilliseconds < 500)
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error validating app launch for {packageName}");
                 return false;
             }
-
-            return true;
         }
     }
 }

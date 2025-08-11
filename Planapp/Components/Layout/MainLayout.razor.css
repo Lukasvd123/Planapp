@@ -1,8 +1,14 @@
-﻿.page {
+﻿/* Performance optimizations */
+* {
+    box-sizing: border-box;
+}
+
+.page {
     position: relative;
     display: flex;
     flex-direction: column;
     min-height: 100vh;
+    overflow-x: hidden;
 }
 
 .sidebar {
@@ -15,16 +21,39 @@
     z-index: 1000;
     transform: translateX(-100%);
     transition: transform 0.3s ease-in-out;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
     .sidebar:not(.collapse) {
         transform: translateX(0);
     }
 
+    /* Scrollbar styling for sidebar */
+    .sidebar::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .sidebar::-webkit-scrollbar-track {
+        background: rgba(255,255,255,0.1);
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+        background: rgba(255,255,255,0.3);
+        border-radius: 3px;
+    }
+
+        .sidebar::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.5);
+        }
+
 main {
     flex: 1;
     margin-left: 0;
     transition: margin-left 0.3s ease-in-out;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
 }
 
 .top-row {
@@ -34,12 +63,17 @@ main {
     display: flex;
     align-items: center;
     padding: 0 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
     .top-row h1 {
         color: white;
         margin: 0;
         font-size: 1.25rem;
+        font-weight: 600;
     }
 
 .navbar-toggler {
@@ -52,10 +86,18 @@ main {
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: background-color 0.2s ease;
+    width: 44px;
+    height: 44px;
 }
 
     .navbar-toggler:hover {
         background: rgba(255, 255, 255, 0.2);
+    }
+
+    .navbar-toggler:focus {
+        outline: 2px solid rgba(255, 255, 255, 0.5);
+        outline-offset: 2px;
     }
 
 .navbar-toggler-icon {
@@ -71,7 +113,21 @@ main {
 .content {
     padding: 1rem !important;
     background: #f8f9fa;
+    flex: 1;
     min-height: calc(100vh - 3.5rem);
+}
+
+/* Mobile Backdrop */
+.mobile-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    display: none;
+    backdrop-filter: blur(2px);
 }
 
 /* Desktop Styles */
@@ -95,6 +151,10 @@ main {
     .navbar-toggler {
         display: none;
     }
+
+    .mobile-backdrop {
+        display: none !important;
+    }
 }
 
 /* Mobile Styles */
@@ -103,15 +163,77 @@ main {
         margin-left: 0;
     }
 
-    /* Backdrop */
-    .sidebar:not(.collapse)::after {
-        content: '';
-        position: fixed;
-        top: 0;
-        left: 260px;
-        width: calc(100vw - 260px);
-        height: 100vh;
-        background: rgba(0, 0, 0, 0.5);
-        z-index: -1;
+    .mobile-backdrop {
+        display: block;
+    }
+
+    .content {
+        padding: 0.75rem !important;
+    }
+
+    .top-row h1 {
+        font-size: 1.1rem;
+    }
+
+    /* Ensure sidebar is above backdrop */
+    .sidebar {
+        z-index: 1001;
+    }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+    .top-row {
+        padding: 0 0.75rem;
+        height: 3rem;
+    }
+
+        .top-row h1 {
+            font-size: 1rem;
+        }
+
+    .navbar-toggler {
+        width: 40px;
+        height: 40px;
+        padding: 0.375rem;
+    }
+
+    .content {
+        padding: 0.5rem !important;
+        min-height: calc(100vh - 3rem);
+    }
+}
+
+/* Focus management for accessibility */
+.sidebar:focus-within {
+    outline: 2px solid rgba(255, 255, 255, 0.5);
+    outline-offset: -2px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .sidebar,
+    main,
+    .navbar-toggler {
+        transition: none !important;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .top-row {
+        border-bottom: 2px solid #000;
+    }
+
+    .navbar-toggler {
+        border: 2px solid rgba(255, 255, 255, 0.8);
+    }
+}
+
+/* Dark mode support (if needed) */
+@media (prefers-color-scheme: dark) {
+    .content {
+        background: #1a1a1a;
+        color: #ffffff;
     }
 }

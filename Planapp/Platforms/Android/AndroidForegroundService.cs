@@ -24,6 +24,9 @@ namespace com.usagemeter.androidapp.Platforms.Android
         private CancellationTokenSource? _cancellationTokenSource;
         private Timer? _keepAliveTimer;
         private Timer? _healthCheckTimer;
+        private Timer? _retryTimer;
+        private int _initializationRetries = 0;
+        private const int MAX_INITIALIZATION_RETRIES = 20;
 
         public override IBinder? OnBind(Intent? intent) => null;
 
@@ -45,20 +48,8 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 // Start health check timer
                 _healthCheckTimer = new Timer(HealthCheck, null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
 
-                // Initialize services in background
-                Task.Run(async () =>
-                {
-                    try
-                    {
-                        await InitializeAndStartMonitoring();
-                    }
-                    catch (Exception ex)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"Error in foreground service initialization: {ex}");
-                        _logger?.LogError(ex, "Error in foreground service initialization");
-                        UpdateNotification("Service Error", $"Monitoring failed: {ex.Message}");
-                    }
-                });
+                // Initialize services with retry logic
+                StartInitializationWithRetry();
 
                 return StartCommandResult.Sticky; // Ensure service restarts if killed
             }
@@ -69,101 +60,213 @@ namespace com.usagemeter.androidapp.Platforms.Android
             }
         }
 
+        private void StartInitializationWithRetry()
+        {
+            // Start immediate initialization attempt
+            Task.Run(async () =>
+            {
+                try
+                {
+                    await InitializeAndStartMonitoring();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Initial service initialization failed: {ex}");
+                    // Retry timer will handle retries
+                }
+            });
+
+            // Start retry timer for failed initializations
+            _retryTimer = new Timer(async _ => await RetryInitialization(), null,
+                TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(10));
+        }
+
+        private async Task RetryInitialization()
+        {
+            if (_appLaunchMonitor?.IsMonitoring == true && _ruleMonitor != null)
+            {
+                // Already initialized successfully
+                _retryTimer?.Dispose();
+                _retryTimer = null;
+                return;
+            }
+
+            if (_initializationRetries >= MAX_INITIALIZATION_RETRIES)
+            {
+                System.Diagnostics.Debug.WriteLine("Max initialization retries reached - stopping retry attempts");
+                _retryTimer?.Dispose();
+                _retryTimer = null;
+                UpdateNotification("Initialization Failed", "Could not start monitoring after multiple attempts");
+                return;
+            }
+
+            _initializationRetries++;
+            System.Diagnostics.Debug.WriteLine($"Retrying service initialization (attempt {_initializationRetries})...");
+
+            try
+            {
+                await InitializeAndStartMonitoring();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Retry {_initializationRetries} failed: {ex.Message}");
+            }
+        }
+
         private async Task InitializeAndStartMonitoring()
         {
             try
             {
-                var retries = 0;
-                var maxRetries = 15; // Increased retries
+                // More robust service provider access with multiple retry strategies
+                IServiceProvider? serviceProvider = null;
 
-                while (retries < maxRetries)
+                // Strategy 1: Try MauiApplication.Current
+                try
                 {
-                    // More defensive service provider access
-                    IServiceProvider? serviceProvider = null;
+                    var app = MauiApplication.Current;
+                    if (app != null)
+                    {
+                        var platformApp = IPlatformApplication.Current;
+                        if (platformApp != null)
+                        {
+                            serviceProvider = platformApp.Services;
+                            System.Diagnostics.Debug.WriteLine("Got service provider via MauiApplication.Current");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"MauiApplication.Current approach failed: {ex.Message}");
+                }
 
+                // Strategy 2: Try IPlatformApplication.Current directly
+                if (serviceProvider == null)
+                {
                     try
                     {
-                        var app = MauiApplication.Current;
-                        if (app != null)
+                        var platformApp = IPlatformApplication.Current;
+                        if (platformApp?.Services != null)
                         {
-                            var platformApp = IPlatformApplication.Current;
-                            if (platformApp != null)
-                            {
-                                serviceProvider = platformApp.Services;
-                            }
+                            serviceProvider = platformApp.Services;
+                            System.Diagnostics.Debug.WriteLine("Got service provider via IPlatformApplication.Current");
                         }
                     }
                     catch (Exception ex)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Error getting service provider (retry {retries}): {ex.Message}");
-                        retries++;
-                        await Task.Delay(3000);
-                        continue;
+                        System.Diagnostics.Debug.WriteLine($"IPlatformApplication.Current approach failed: {ex.Message}");
                     }
-
-                    if (serviceProvider != null)
-                    {
-                        try
-                        {
-                            _logger = serviceProvider.GetService<ILogger<AndroidForegroundService>>();
-                            _ruleMonitor = serviceProvider.GetService<RuleMonitorService>();
-                            _appLaunchMonitor = serviceProvider.GetService<IAppLaunchMonitor>();
-
-                            if (_ruleMonitor != null && _appLaunchMonitor != null)
-                            {
-                                _logger?.LogInformation("Services found - starting enhanced monitoring");
-
-                                var settingsService = serviceProvider.GetService<ISettingsService>();
-                                if (settingsService != null)
-                                {
-                                    var settings = await settingsService.GetSettingsAsync();
-
-                                    if (settings?.AllRulesEnabled == true)
-                                    {
-                                        // Start both monitoring services
-                                        await _appLaunchMonitor.StartMonitoringAsync();
-                                        _logger?.LogInformation($"App launch monitor started. IsMonitoring: {_appLaunchMonitor.IsMonitoring}");
-
-                                        await _ruleMonitor.StartAsync(_cancellationTokenSource?.Token ?? CancellationToken.None);
-                                        _logger?.LogInformation("Enhanced rule monitor started");
-
-                                        var activeRulesCount = await GetActiveRulesCount(serviceProvider);
-                                        UpdateNotification("Enhanced Monitoring Active",
-                                            $"Monitoring launches + usage for {activeRulesCount} active rules");
-
-                                        AndroidNotificationHelper.ShowAppLaunchNotification(
-                                            "Enhanced Background Service Started",
-                                            "Service actively monitoring app launches and usage limits"
-                                        );
-
-                                        return; // Success
-                                    }
-                                    else
-                                    {
-                                        UpdateNotification("Monitoring Disabled", "Rules are disabled in settings");
-                                        _logger?.LogInformation("Rules are disabled - monitoring not started");
-                                        return;
-                                    }
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger?.LogError(ex, $"Error initializing services (retry {retries})");
-                        }
-                    }
-
-                    retries++;
-                    await Task.Delay(3000); // Wait 3 seconds before retry
                 }
 
-                _logger?.LogError("Failed to initialize services after maximum retries");
-                UpdateNotification("Initialization Failed", "Could not start monitoring services");
+                if (serviceProvider == null)
+                {
+                    throw new InvalidOperationException("Could not obtain service provider from any source");
+                }
+
+                // Get services with individual error handling
+                try
+                {
+                    _logger = serviceProvider.GetService<ILogger<AndroidForegroundService>>();
+                    _logger?.LogInformation("Logger service obtained");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error getting logger: {ex.Message}");
+                }
+
+                try
+                {
+                    _ruleMonitor = serviceProvider.GetService<RuleMonitorService>();
+                    if (_ruleMonitor != null)
+                    {
+                        _logger?.LogInformation("Rule monitor service obtained");
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("RuleMonitorService not found");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error getting rule monitor: {ex.Message}");
+                    throw;
+                }
+
+                try
+                {
+                    _appLaunchMonitor = serviceProvider.GetService<IAppLaunchMonitor>();
+                    if (_appLaunchMonitor != null)
+                    {
+                        _logger?.LogInformation("App launch monitor service obtained");
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("IAppLaunchMonitor not found");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error getting app launch monitor: {ex.Message}");
+                    throw;
+                }
+
+                // Check if rules are enabled
+                var settingsService = serviceProvider.GetService<ISettingsService>();
+                if (settingsService == null)
+                {
+                    throw new InvalidOperationException("ISettingsService not found");
+                }
+
+                var settings = await settingsService.GetSettingsAsync();
+                if (settings?.AllRulesEnabled != true)
+                {
+                    _logger?.LogInformation("Rules are disabled - monitoring not started");
+                    UpdateNotification("Monitoring Disabled", "Rules are disabled in settings");
+
+                    // Stop retry timer since this is not an error condition
+                    _retryTimer?.Dispose();
+                    _retryTimer = null;
+                    return;
+                }
+
+                // Start monitoring services
+                _logger?.LogInformation("Starting monitoring services...");
+
+                // Start app launch monitor first
+                await _appLaunchMonitor.StartMonitoringAsync();
+                _logger?.LogInformation($"App launch monitor started. IsMonitoring: {_appLaunchMonitor.IsMonitoring}");
+
+                if (!_appLaunchMonitor.IsMonitoring)
+                {
+                    throw new InvalidOperationException("App launch monitor failed to start");
+                }
+
+                // Start rule monitor
+                await _ruleMonitor.StartAsync(_cancellationTokenSource?.Token ?? CancellationToken.None);
+                _logger?.LogInformation("Rule monitor started");
+
+                // Get active rules count for status
+                var activeRulesCount = await GetActiveRulesCount(serviceProvider);
+
+                UpdateNotification("Enhanced Monitoring Active",
+                    $"Successfully monitoring {activeRulesCount} active rules");
+
+                AndroidNotificationHelper.ShowAppLaunchNotification(
+                    "Background Service Ready",
+                    $"Enhanced monitoring active - {activeRulesCount} rules enabled"
+                );
+
+                _logger?.LogInformation($"Service initialization completed successfully - monitoring {activeRulesCount} rules");
+
+                // Stop retry timer on success
+                _retryTimer?.Dispose();
+                _retryTimer = null;
+                _initializationRetries = 0; // Reset counter on success
             }
             catch (Exception ex)
             {
-                _logger?.LogError(ex, "Error in InitializeAndStartMonitoring");
-                UpdateNotification("Service Error", $"Failed to start: {ex.Message}");
+                _logger?.LogError(ex, $"Error in InitializeAndStartMonitoring (attempt {_initializationRetries})");
+                UpdateNotification("Initialization Error", $"Attempt {_initializationRetries}: {ex.Message}");
+                throw; // Re-throw to trigger retry logic
             }
         }
 
@@ -175,8 +278,9 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 var rules = await ruleService?.GetRulesAsync()!;
                 return rules?.Count(r => r.IsEnabled) ?? 0;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger?.LogWarning(ex, "Error getting active rules count");
                 return 0;
             }
         }
@@ -192,23 +296,14 @@ namespace com.usagemeter.androidapp.Platforms.Android
 
                 // Update notification with current status
                 UpdateNotification("Enhanced Monitoring Active",
-                    $"Launch Monitor: {launchStatus} | Rule Monitor: {ruleStatus}");
+                    $"Launch: {launchStatus} | Rules: {ruleStatus}");
 
-                // If monitoring stopped unexpectedly, try to restart it
+                // If monitoring stopped unexpectedly, trigger reinitialization
                 if (_appLaunchMonitor?.IsMonitoring != true && _cancellationTokenSource?.Token.IsCancellationRequested != true)
                 {
-                    _logger?.LogWarning("Launch monitoring stopped unexpectedly - attempting restart");
-                    Task.Run(async () =>
-                    {
-                        try
-                        {
-                            await InitializeAndStartMonitoring();
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger?.LogError(ex, "Error restarting monitoring");
-                        }
-                    });
+                    _logger?.LogWarning("Launch monitoring stopped unexpectedly - triggering reinitialization");
+                    _initializationRetries = 0; // Reset retry count
+                    StartInitializationWithRetry();
                 }
             }
             catch (Exception ex)
@@ -221,18 +316,23 @@ namespace com.usagemeter.androidapp.Platforms.Android
         {
             try
             {
-                // Check if services are still responsive
                 var isHealthy = _appLaunchMonitor?.IsMonitoring == true && _ruleMonitor != null;
 
                 if (!isHealthy)
                 {
                     _logger?.LogWarning("Health check failed - services may be unresponsive");
 
-                    // Show notification about health issue
                     AndroidNotificationHelper.ShowAppLaunchNotification(
                         "Service Health Warning",
                         "Monitoring services may need restart - check app"
                     );
+
+                    // Trigger reinitialization on health check failure
+                    if (_retryTimer == null) // Only if not already retrying
+                    {
+                        _initializationRetries = 0;
+                        StartInitializationWithRetry();
+                    }
                 }
                 else
                 {
@@ -253,11 +353,27 @@ namespace com.usagemeter.androidapp.Platforms.Android
 
                 _keepAliveTimer?.Dispose();
                 _healthCheckTimer?.Dispose();
+                _retryTimer?.Dispose();
                 _cancellationTokenSource?.Cancel();
 
                 // Stop monitoring services
-                _appLaunchMonitor?.StopMonitoringAsync().Wait(5000);
-                _ruleMonitor?.StopAsync().Wait(5000);
+                try
+                {
+                    _appLaunchMonitor?.StopMonitoringAsync().Wait(5000);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error stopping app launch monitor: {ex}");
+                }
+
+                try
+                {
+                    _ruleMonitor?.StopAsync().Wait(5000);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error stopping rule monitor: {ex}");
+                }
 
                 System.Diagnostics.Debug.WriteLine("AndroidForegroundService stopped");
             }
