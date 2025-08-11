@@ -147,40 +147,7 @@ namespace com.usagemeter.androidapp
                     throw; // Re-throw to show system error
                 }
 
-                // Post-build initialization (non-critical)
-#if ANDROID
-                try
-                {
-                    System.Diagnostics.Debug.WriteLine("Starting post-build initialization...");
-                    Task.Run(async () =>
-                    {
-                        try
-                        {
-                            await Task.Delay(3000); // Wait for app to fully initialize
-
-                            var serviceProvider = app.Services;
-                            var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
-                            var logger = loggerFactory.CreateLogger("MauiProgram");
-                            var settings = serviceProvider.GetRequiredService<ISettingsService>();
-
-                            logger.LogInformation("MAUI app post-init started");
-                            System.Diagnostics.Debug.WriteLine("Post-init: Loading settings...");
-
-                            var appSettings = await settings.GetSettingsAsync();
-                            logger.LogInformation($"Settings loaded - Rules enabled: {appSettings.AllRulesEnabled}");
-                            System.Diagnostics.Debug.WriteLine($"Post-init completed - Rules: {appSettings.AllRulesEnabled}");
-                        }
-                        catch (Exception ex)
-                        {
-                            System.Diagnostics.Debug.WriteLine($"Non-critical post-init error: {ex}");
-                        }
-                    });
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Error starting post-init (non-critical): {ex}");
-                }
-#endif
+                // Removed the problematic post-build initialization that was causing the cast exception
 
                 System.Diagnostics.Debug.WriteLine("=== MAUI PROGRAM COMPLETED SUCCESSFULLY ===");
                 return app;

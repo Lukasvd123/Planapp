@@ -18,14 +18,12 @@ namespace com.usagemeter.androidapp.Platforms.Android
     {
         private readonly ILogger<AndroidAppLaunchMonitor> _logger;
         private CancellationTokenSource? _cancellationTokenSource;
-        private readonly Dictionary<string, DateTime> _lastTriggerTime = new();
         private readonly Dictionary<string, DateTime> _lastSeenActive = new();
         private DateTime _lastCheckTime = DateTime.Now;
         private int _consecutiveErrors = 0;
         private const int MAX_CONSECUTIVE_ERRORS = 10;
-        private const int CHECK_INTERVAL_MS = 5000; // Check every 5 seconds
-        private const int MIN_TRIGGER_INTERVAL_MINUTES = 30; // 30 minutes between triggers for same app
-        private const int APP_LAUNCH_DETECTION_WINDOW_SECONDS = 15; // Only trigger if app became active in last 15 seconds
+        private const int CHECK_INTERVAL_MS = 2000; // Check every 2 seconds for immediate response
+        private const int APP_LAUNCH_DETECTION_WINDOW_SECONDS = 10; // Detect app launches in last 10 seconds
 
         public event EventHandler<AppLaunchEventArgs>? AppLaunched;
         public bool IsMonitoring { get; private set; }
@@ -43,7 +41,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 return;
             }
 
-            _logger.LogInformation("Starting controlled app launch monitoring");
+            _logger.LogInformation("Starting IMMEDIATE app launch monitoring (NO COOLDOWNS)");
 
             try
             {
@@ -62,12 +60,12 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 _consecutiveErrors = 0;
 
                 AndroidNotificationHelper.ShowAppLaunchNotification(
-                    "Controlled Monitoring Started",
-                    "Monitoring actual app launches only"
+                    "Immediate Monitoring Started",
+                    "Monitoring app launches with immediate triggers - NO COOLDOWNS"
                 );
 
-                // Start controlled monitoring - only actual launches
-                _ = Task.Run(() => ControlledLaunchMonitorLoop(_cancellationTokenSource.Token), _cancellationTokenSource.Token);
+                // Start immediate monitoring - every app launch triggers rules
+                _ = Task.Run(() => ImmediateLaunchMonitorLoop(_cancellationTokenSource.Token), _cancellationTokenSource.Token);
 
                 await Task.CompletedTask;
             }
@@ -90,14 +88,13 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 return;
             }
 
-            _logger.LogInformation("Stopping controlled app launch monitoring");
+            _logger.LogInformation("Stopping immediate app launch monitoring");
 
             _cancellationTokenSource?.Cancel();
             _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = null;
 
             IsMonitoring = false;
-            _lastTriggerTime.Clear();
             _lastSeenActive.Clear();
 
             AndroidNotificationHelper.ShowAppLaunchNotification(
@@ -168,9 +165,9 @@ namespace com.usagemeter.androidapp.Platforms.Android
             }
         }
 
-        private async Task ControlledLaunchMonitorLoop(CancellationToken cancellationToken)
+        private async Task ImmediateLaunchMonitorLoop(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Controlled launch monitoring started (5s intervals)");
+            _logger.LogInformation("Immediate launch monitoring started (2s intervals, NO COOLDOWNS)");
 
             try
             {
@@ -178,7 +175,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 {
                     try
                     {
-                        await CheckForActualAppLaunches();
+                        await CheckForImmediateAppLaunches();
                         _consecutiveErrors = 0;
                     }
                     catch (Exception ex)
@@ -192,7 +189,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
                             break;
                         }
 
-                        await Task.Delay(10000, cancellationToken);
+                        await Task.Delay(5000, cancellationToken);
                         continue;
                     }
 
@@ -201,15 +198,15 @@ namespace com.usagemeter.androidapp.Platforms.Android
             }
             catch (SystemOperationCanceledException)
             {
-                _logger.LogInformation("Controlled launch monitoring cancelled");
+                _logger.LogInformation("Immediate launch monitoring cancelled");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Controlled launch monitoring error");
+                _logger.LogError(ex, "Immediate launch monitoring error");
             }
         }
 
-        private async Task CheckForActualAppLaunches()
+        private async Task CheckForImmediateAppLaunches()
         {
             try
             {
@@ -220,9 +217,9 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 if (usageStatsManager == null) return;
 
                 var endTime = Java.Lang.JavaSystem.CurrentTimeMillis();
-                var startTime = endTime - (CHECK_INTERVAL_MS + 5000); // Check events in the last check interval + buffer
+                var startTime = endTime - (CHECK_INTERVAL_MS + 3000); // Check events in the last check interval + buffer
 
-                // Check recent usage events for actual activity transitions
+                // Check recent usage events for activity transitions
                 var usageEvents = usageStatsManager.QueryEvents(startTime, endTime);
                 var recentLaunches = new List<(string PackageName, DateTime LaunchTime)>();
 
@@ -236,8 +233,8 @@ namespace com.usagemeter.androidapp.Platforms.Android
                         var packageName = eventObj.PackageName;
                         var eventTime = DateTimeOffset.FromUnixTimeMilliseconds(eventObj.TimeStamp).DateTime;
 
-                        // Only consider as "launch" if we haven't seen this app active recently
-                        if (IsActualAppLaunch(packageName, eventTime))
+                        // Check if this is a valid app launch (not our own app)
+                        if (IsValidAppLaunch(packageName, eventTime))
                         {
                             recentLaunches.Add((packageName, eventTime));
                             _lastSeenActive[packageName] = eventTime;
@@ -245,81 +242,47 @@ namespace com.usagemeter.androidapp.Platforms.Android
                     }
                 }
 
-                // Process actual launches
+                // Process ALL launches IMMEDIATELY (no cooldown check)
                 foreach (var (packageName, launchTime) in recentLaunches)
                 {
-                    if (ShouldTriggerForPackage(packageName, launchTime))
+                    var appName = UsageStatsHelper.GetAppName(packageName);
+
+                    _logger.LogInformation($"🚀 IMMEDIATE LAUNCH DETECTED: {appName} ({packageName}) at {launchTime:HH:mm:ss}");
+
+                    AndroidNotificationHelper.ShowAppLaunchNotification(
+                        $"App Launch: {appName}",
+                        $"Detected launch at {launchTime:HH:mm:ss} - checking rules immediately"
+                    );
+
+                    AppLaunched?.Invoke(this, new AppLaunchEventArgs
                     {
-                        var appName = UsageStatsHelper.GetAppName(packageName);
-
-                        _logger.LogInformation($"🚀 ACTUAL LAUNCH DETECTED: {appName} ({packageName}) at {launchTime:HH:mm:ss}");
-
-                        AndroidNotificationHelper.ShowAppLaunchNotification(
-                            $"App Launch: {appName}",
-                            $"Detected fresh launch at {launchTime:HH:mm:ss}"
-                        );
-
-                        AppLaunched?.Invoke(this, new AppLaunchEventArgs
-                        {
-                            PackageName = packageName,
-                            AppName = appName,
-                            LaunchedAt = launchTime
-                        });
-
-                        _lastTriggerTime[packageName] = DateTime.Now;
-                    }
+                        PackageName = packageName,
+                        AppName = appName,
+                        LaunchedAt = launchTime
+                    });
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error checking actual app launches");
+                _logger.LogError(ex, "Error checking immediate app launches");
                 throw;
             }
 
             await Task.CompletedTask;
         }
 
-        private bool IsActualAppLaunch(string packageName, DateTime eventTime)
+        private bool IsValidAppLaunch(string packageName, DateTime eventTime)
         {
             // Skip our own app
             if (packageName == "com.usagemeter.androidapp") return false;
 
-            // Check if we've seen this app active recently
-            if (_lastSeenActive.TryGetValue(packageName, out var lastSeen))
-            {
-                var timeSinceLastSeen = eventTime - lastSeen;
+            // Skip system launcher apps
+            if (packageName.Contains("launcher")) return false;
 
-                // Only consider as "launch" if app hasn't been active for at least 15 seconds
-                if (timeSinceLastSeen.TotalSeconds < APP_LAUNCH_DETECTION_WINDOW_SECONDS)
-                {
-                    return false; // App was already active recently, not a fresh launch
-                }
-            }
-
-            return true;
-        }
-
-        private bool ShouldTriggerForPackage(string packageName, DateTime launchTime)
-        {
-            if (string.IsNullOrEmpty(packageName)) return false;
-            if (packageName == "com.usagemeter.androidapp") return false;
-
-            // Check if we've triggered for this app recently (much longer cooldown)
-            if (_lastTriggerTime.TryGetValue(packageName, out var lastTrigger))
-            {
-                var timeSinceLastTrigger = DateTime.Now - lastTrigger;
-                if (timeSinceLastTrigger.TotalMinutes < MIN_TRIGGER_INTERVAL_MINUTES)
-                {
-                    _logger.LogDebug($"Skipping trigger for {packageName} - too soon since last trigger ({timeSinceLastTrigger.TotalMinutes:F1} minutes ago)");
-                    return false;
-                }
-            }
-
-            // Only trigger for very recent launches (within last 15 seconds)
-            var launchAge = DateTime.Now - launchTime;
+            // Only consider launches in the last detection window
+            var launchAge = DateTime.Now - eventTime;
             if (launchAge.TotalSeconds > APP_LAUNCH_DETECTION_WINDOW_SECONDS)
             {
-                _logger.LogDebug($"Skipping trigger for {packageName} - launch too old ({launchAge.TotalSeconds:F1} seconds)");
                 return false;
             }
 

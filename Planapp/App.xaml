@@ -5,9 +5,9 @@
              x:Class="com.usagemeter.androidapp.App">
     <Application.Resources>
         <ResourceDictionary>
-            <!-- Color scheme -->
+            <!-- Updated color scheme matching the simple navigation -->
             <Color x:Key="Primary">#667eea</Color>
-            <Color x:Key="Secondary">#764ba2</Color>
+            <Color x:Key="Secondary">#3a0647</Color>
             <Color x:Key="Tertiary">#2196F3</Color>
             <Color x:Key="White">White</Color>
             <Color x:Key="Black">Black</Color>
@@ -20,7 +20,7 @@
             <Color x:Key="Gray900">#212121</Color>
             <Color x:Key="Gray950">#141414</Color>
 
-            <!-- Shell appearance -->
+            <!-- Shell appearance with updated colors -->
             <Style TargetType="Shell" ApplyToDerivedTypes="True">
                 <Setter Property="Shell.BackgroundColor" Value="{StaticResource Primary}" />
                 <Setter Property="Shell.ForegroundColor" Value="{StaticResource White}" />
@@ -39,7 +39,7 @@
                 <Setter Property="Shell.ForegroundColor" Value="{StaticResource White}" />
             </Style>
 
-            <!-- Button styles -->
+            <!-- Improved button styles -->
             <Style TargetType="Button">
                 <Setter Property="TextColor" Value="White" />
                 <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
