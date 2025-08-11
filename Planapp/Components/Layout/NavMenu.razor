@@ -5,13 +5,11 @@
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">📱 Usage Meter</a>
-        <button class="navbar-toggler" @onclick="ToggleNavMenu" type="button">
-            <span class="navbar-toggler-icon"></span>
-        </button>
+        <!-- Remove this button to avoid conflicts with MainLayout's button -->
     </div>
 </div>
 
-<div class="nav-scrollable @NavMenuCssClass" @onclick="@CollapseNavMenu">
+<div class="nav-scrollable @(CollapseMenu ? "collapse" : "")" @onclick:stopPropagation="true">
     <nav class="flex-column">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All" @onclick="@CloseMenu">
@@ -27,11 +25,11 @@
 
         @if (DeviceInfo.Platform == DevicePlatform.Android)
         {
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="android-usage" @onclick="@CloseMenu">
-                    <span class="bi bi-phone-nav-menu" aria-hidden="true"></span> App Usage
-                </NavLink>
-            </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="android-usage" @onclick="@CloseMenu">
+                        <span class="bi bi-phone-nav-menu" aria-hidden="true"></span> App Usage
+                    </NavLink>
+                </div>
         }
 
         <div class="nav-item px-3">
@@ -43,58 +41,41 @@
         @{
             var isDebugBuild = false;
 #if DEBUG
-        isDebugBuild = true;
+            isDebugBuild = true;
 #endif
         }
 
         @if (isDebugBuild)
         {
-            <div class="nav-section-title">Debug Tools</div>
+                <div class="nav-section-title">Debug Tools</div>
 
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="rule-test" @onclick="@CloseMenu">
-                    <span class="bi bi-test-nav-menu" aria-hidden="true"></span> Test Rules
-                </NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="launch-test" @onclick="@CloseMenu">
-                    <span class="bi bi-launch-test-nav-menu" aria-hidden="true"></span> Launch Test
-                </NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="app-launcher-test" @onclick="@CloseMenu">
-                    <span class="bi bi-launch-test-nav-menu" aria-hidden="true"></span> App Launcher Test
-                </NavLink>
-            </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="rule-test" @onclick="@CloseMenu">
+                        <span class="bi bi-test-nav-menu" aria-hidden="true"></span> Test Rules
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="launch-test" @onclick="@CloseMenu">
+                        <span class="bi bi-launch-test-nav-menu" aria-hidden="true"></span> Launch Test
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="app-launcher-test" @onclick="@CloseMenu">
+                        <span class="bi bi-launch-test-nav-menu" aria-hidden="true"></span> App Launcher Test
+                    </NavLink>
+                </div>
         }
     </nav>
 </div>
 
 @code {
     [Parameter] public EventCallback OnMenuItemClick { get; set; }
-
-    private bool collapseNavMenu = true;
-
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
-
-    private void ToggleNavMenu()
-    {
-        collapseNavMenu = !collapseNavMenu;
-        StateHasChanged();
-    }
+    [Parameter] public bool CollapseMenu { get; set; } = true;
+    [Parameter] public EventCallback OnToggleMenu { get; set; }
 
     private async Task CloseMenu()
     {
-        collapseNavMenu = true;
         await OnMenuItemClick.InvokeAsync();
-        StateHasChanged();
-    }
-
-    private void CollapseNavMenu()
-    {
-        // This method can be called from JavaScript if needed
-        // For now, we'll handle mobile behavior through CSS and the parent component
-        collapseNavMenu = true;
         StateHasChanged();
     }
 
@@ -106,8 +87,7 @@
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
         // Always close menu on navigation
-        collapseNavMenu = true;
-        StateHasChanged();
+        InvokeAsync(async () => await OnMenuItemClick.InvokeAsync());
     }
 
     public void Dispose()

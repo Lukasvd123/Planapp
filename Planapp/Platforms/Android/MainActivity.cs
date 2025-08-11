@@ -29,11 +29,18 @@ namespace com.usagemeter.androidapp
                 // Handle blocking intent if present
                 HandleIntent(Intent);
 
-                System.Diagnostics.Debug.WriteLine("MainActivity created successfully");
+                System.Diagnostics.Debug.WriteLine("✅ MainActivity created successfully");
+
+                // ALWAYS start the foreground service on create
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(1000); // Give app time to initialize
+                    await StartMonitoringServiceAlways();
+                });
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error in MainActivity.OnCreate: {ex}");
+                System.Diagnostics.Debug.WriteLine($"❌ Error in MainActivity.OnCreate: {ex}");
             }
         }
 
@@ -48,19 +55,19 @@ namespace com.usagemeter.androidapp
         {
             base.OnResume();
 
-            System.Diagnostics.Debug.WriteLine("MainActivity resumed");
+            System.Diagnostics.Debug.WriteLine("✅ MainActivity resumed");
 
-            // Initialize services when app comes to foreground
+            // ALWAYS ensure service is running when app resumes
             Task.Run(async () =>
             {
                 try
                 {
                     await Task.Delay(500); // Give UI time to load
-                    await InitializeServicesAsync();
+                    await StartMonitoringServiceAlways();
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Error initializing services: {ex}");
+                    System.Diagnostics.Debug.WriteLine($"❌ Error ensuring service on resume: {ex}");
                 }
             });
         }
@@ -95,7 +102,7 @@ namespace com.usagemeter.androidapp
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error handling intent: {ex}");
+                System.Diagnostics.Debug.WriteLine($"❌ Error handling intent: {ex}");
             }
         }
 
@@ -114,18 +121,20 @@ namespace com.usagemeter.androidapp
                 // Bring to front
                 Window?.AddFlags(Android.Views.WindowManagerFlags.KeepScreenOn);
 
-                System.Diagnostics.Debug.WriteLine("Activity brought to foreground");
+                System.Diagnostics.Debug.WriteLine("✅ Activity brought to foreground");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error bringing to foreground: {ex}");
+                System.Diagnostics.Debug.WriteLine($"❌ Error bringing to foreground: {ex}");
             }
         }
 
-        private async Task InitializeServicesAsync()
+        private async Task StartMonitoringServiceAlways()
         {
             try
             {
+                System.Diagnostics.Debug.WriteLine("🚀 ALWAYS starting monitoring service...");
+
                 // More defensive service provider access
                 IServiceProvider? serviceProvider = null;
 
@@ -139,32 +148,40 @@ namespace com.usagemeter.androidapp
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Could not get service provider: {ex.Message}");
-                    return;
+                    System.Diagnostics.Debug.WriteLine($"❌ Could not get service provider: {ex.Message}");
+                    // Continue anyway and try to start foreground service
                 }
 
-                if (serviceProvider == null)
-                {
-                    System.Diagnostics.Debug.WriteLine("Service provider is null");
-                    return;
-                }
+                // ALWAYS START FOREGROUND SERVICE regardless of settings
+                await Platforms.Android.AndroidForegroundService.StartAsync();
+                System.Diagnostics.Debug.WriteLine("✅ Foreground service start requested");
 
-                var settingsService = serviceProvider.GetService<Services.ISettingsService>();
-                if (settingsService != null)
+                // If we have service provider, also check settings
+                if (serviceProvider != null)
                 {
-                    var settings = await settingsService.GetSettingsAsync();
-                    if (settings.AllRulesEnabled)
+                    var settingsService = serviceProvider.GetService<Services.ISettingsService>();
+                    if (settingsService != null)
                     {
-                        // Start foreground service using static method
-                        await Platforms.Android.AndroidForegroundService.StartAsync();
-
-                        System.Diagnostics.Debug.WriteLine("Services initialized successfully");
+                        var settings = await settingsService.GetSettingsAsync();
+                        System.Diagnostics.Debug.WriteLine($"⚙️ Settings - All rules enabled: {settings.AllRulesEnabled}");
                     }
                 }
+
+                System.Diagnostics.Debug.WriteLine("✅ Monitoring service initialization completed");
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error in InitializeServicesAsync: {ex}");
+                System.Diagnostics.Debug.WriteLine($"❌ Error in StartMonitoringServiceAlways: {ex}");
+
+                // Try to show notification about the error
+                try
+                {
+                    Platforms.Android.AndroidNotificationHelper.ShowAppLaunchNotification(
+                        "Service Start Error",
+                        $"Failed to start monitoring: {ex.Message}"
+                    );
+                }
+                catch { }
             }
         }
 
@@ -172,7 +189,7 @@ namespace com.usagemeter.androidapp
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine($"TriggerRuleBlockAsync called for rule: {ruleId}");
+                System.Diagnostics.Debug.WriteLine($"🔥 TriggerRuleBlockAsync called for rule: {ruleId}");
 
                 // More defensive service provider access
                 IServiceProvider? serviceProvider = null;
@@ -187,13 +204,13 @@ namespace com.usagemeter.androidapp
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Could not get service provider: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"❌ Could not get service provider: {ex.Message}");
                     return;
                 }
 
                 if (serviceProvider == null)
                 {
-                    System.Diagnostics.Debug.WriteLine("Service provider not available");
+                    System.Diagnostics.Debug.WriteLine("❌ Service provider not available");
                     return;
                 }
 
@@ -207,22 +224,22 @@ namespace com.usagemeter.androidapp
 
                     if (rule != null)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Triggering rule block for: {rule.Name}");
+                        System.Diagnostics.Debug.WriteLine($"🔒 Triggering rule block for: {rule.Name}");
                         await blockService.TriggerRuleBlock(rule);
                     }
                     else
                     {
-                        System.Diagnostics.Debug.WriteLine($"Rule not found: {ruleId}");
+                        System.Diagnostics.Debug.WriteLine($"❌ Rule not found: {ruleId}");
                     }
                 }
                 else
                 {
-                    System.Diagnostics.Debug.WriteLine("Required services not available");
+                    System.Diagnostics.Debug.WriteLine("❌ Required services not available");
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error triggering rule block: {ex}");
+                System.Diagnostics.Debug.WriteLine($"❌ Error triggering rule block: {ex}");
             }
         }
 
@@ -252,7 +269,7 @@ namespace com.usagemeter.androidapp
 
                 if (blockService?.IsBlocking == true)
                 {
-                    System.Diagnostics.Debug.WriteLine("Back navigation blocked during rule enforcement");
+                    System.Diagnostics.Debug.WriteLine("🔒 Back navigation blocked during rule enforcement");
                     return;
                 }
 
@@ -260,7 +277,7 @@ namespace com.usagemeter.androidapp
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error in OnBackPressed: {ex}");
+                System.Diagnostics.Debug.WriteLine($"❌ Error in OnBackPressed: {ex}");
                 base.OnBackPressed();
             }
         }
@@ -275,12 +292,12 @@ namespace com.usagemeter.androidapp
                 if (requestCode == 1001 && permissions.Length > 0)
                 {
                     var granted = grantResults[0] == Permission.Granted;
-                    System.Diagnostics.Debug.WriteLine($"Permission result: {permissions[0]} = {granted}");
+                    System.Diagnostics.Debug.WriteLine($"✅ Permission result: {permissions[0]} = {granted}");
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error handling permission result: {ex}");
+                System.Diagnostics.Debug.WriteLine($"❌ Error handling permission result: {ex}");
             }
         }
 
@@ -288,12 +305,12 @@ namespace com.usagemeter.androidapp
         {
             try
             {
-                System.Diagnostics.Debug.WriteLine("MainActivity destroying");
+                System.Diagnostics.Debug.WriteLine("🔄 MainActivity destroying");
                 base.OnDestroy();
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error in OnDestroy: {ex}");
+                System.Diagnostics.Debug.WriteLine($"❌ Error in OnDestroy: {ex}");
             }
         }
     }

@@ -6,7 +6,7 @@
 
 <div class="page">
     <div class="sidebar @NavMenuCssClass">
-        <NavMenu @ref="navMenuRef" OnMenuItemClick="@CloseNavMenu" />
+        <NavMenu @ref="navMenuRef" OnMenuItemClick="@CloseNavMenu" CollapseMenu="@collapseNavMenu" OnToggleMenu="@ToggleNavMenu" />
     </div>
 
     <main>
@@ -77,16 +77,11 @@
     [JSInvokable]
     public void OnWindowResize(bool isMobile)
     {
-        // Auto-close menu on desktop, keep current state on mobile
+        // Auto-close menu on desktop resize, keep current state on mobile
         if (!isMobile && !collapseNavMenu)
         {
             // Don't auto-close on desktop, let user control it
         }
-        else if (isMobile && !collapseNavMenu)
-        {
-            // Keep menu state on mobile
-        }
-
         StateHasChanged();
     }
 
