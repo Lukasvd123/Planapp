@@ -7,162 +7,769 @@
 @using com.usagemeter.androidapp.Models
 @implements IDisposable
 
-<div class="dashboard-container">
-    <div class="dashboard-header">
-        <h1 class="dashboard-title">📱 Usage Dashboard</h1>
-        <p class="dashboard-subtitle">@GetGreeting()</p>
-    </div>
-
-    @if (DeviceInfo.Platform == DevicePlatform.Android)
-    {
-        <!-- Permission Status Section -->
-        <div class="permissions-section">
-            <h2 class="section-title">🔐 Required Permissions</h2>
-            
-            <div class="permission-cards">
-                <!-- Usage Stats Permission -->
-                <div class="permission-card @(HasUsagePermission ? "granted" : "denied")">
-                    <div class="permission-icon">@(HasUsagePermission ? "✅" : "❌")</div>
-                    <div class="permission-content">
-                        <h3>Usage Statistics</h3>
-                        <p>@(HasUsagePermission ? "Granted - Can track app usage" : "Required to monitor app usage")</p>
-                        @if (!HasUsagePermission)
-                        {
-                            <button class="btn-permission" @onclick="RequestUsagePermission">Grant Permission</button>
-                        }
-                    </div>
-                </div>
-
-                <!-- Overlay Permission -->
-                <div class="permission-card @(HasOverlayPermission ? "granted" : "denied")">
-                    <div class="permission-icon">@(HasOverlayPermission ? "✅" : "❌")</div>
-                    <div class="permission-content">
-                        <h3>Display Over Apps</h3>
-                        <p>@(HasOverlayPermission ? "Granted - Can show blocking screen" : "Required to enforce rules over other apps")</p>
-                        @if (!HasOverlayPermission)
-                        {
-                            <button class="btn-permission" @onclick="RequestOverlayPermission">Grant Permission</button>
-                        }
-                    </div>
-                </div>
-
-                <!-- Notification Permission -->
-                <div class="permission-card @(HasNotificationPermission ? "granted" : "denied")">
-                    <div class="permission-icon">@(HasNotificationPermission ? "✅" : "⚠️")</div>
-                    <div class="permission-content">
-                        <h3>Notifications</h3>
-                        <p>@(HasNotificationPermission ? "Granted - Can show alerts" : "Recommended for rule notifications")</p>
-                        @if (!HasNotificationPermission)
-                        {
-                            <button class="btn-permission" @onclick="RequestNotificationPermission">Grant Permission</button>
-                        }
-                    </div>
-                </div>
+<div class="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Hero Section -->
+        <div class="text-center mb-16">
+            <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl mb-8 shadow-2xl">
+                <span class="text-3xl">📱</span>
             </div>
-
-            @if (!HasUsagePermission || !HasOverlayPermission)
-            {
-                <div class="permission-warning">
-                    <div class="warning-icon">⚠️</div>
-                    <div class="warning-content">
-                        <h3>Permissions Required</h3>
-                        <p>Usage Meter needs these permissions to function properly. Without them, the app cannot monitor usage or block apps when limits are reached.</p>
-                    </div>
-                </div>
-            }
+            <h1 class="text-5xl sm:text-6xl font-bold mb-6">
+                <span class="bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent">
+                    @GetGreeting()
+                </span>
+            </h1>
+            <p class="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+                Take control of your digital life with intelligent app monitoring and smart usage insights
+            </p>
         </div>
 
-        @if (HasUsagePermission)
+        @if (DeviceInfo.Platform == DevicePlatform.Android)
         {
-            <div class="stats-grid">
-                <div class="stat-card primary">
-                    <div class="stat-icon">📊</div>
-                    <div class="stat-content">
-                        <div class="stat-value">@(TodayUsage.HasValue ? FormatTime(TodayUsage.Value) : "--")</div>
-                        <div class="stat-label">Today's Screen Time</div>
-                    </div>
-                </div>
-
-                <div class="stat-card secondary">
-                    <div class="stat-icon">📋</div>
-                    <div class="stat-content">
-                        <div class="stat-value">@ActiveRulesCount</div>
-                        <div class="stat-label">Active Rules</div>
-                    </div>
-                </div>
-
-                <div class="stat-card accent">
-                    <div class="stat-icon">📱</div>
-                    <div class="stat-content">
-                        <div class="stat-value">@AppsMonitored</div>
-                        <div class="stat-label">Apps Monitored</div>
-                    </div>
-                </div>
-
-                <div class="stat-card success">
-                    <div class="stat-icon">✅</div>
-                    <div class="stat-content">
-                        <div class="stat-value">@(Settings?.AllRulesEnabled == true ? "ON" : "OFF")</div>
-                        <div class="stat-label">Protection Status</div>
-                    </div>
-                </div>
-            </div>
-
-            @if (TopApps?.Any() == true)
-            {
-                <div class="section-card">
-                    <h2 class="section-title">🏆 Most Used Apps Today</h2>
-                    <div class="top-apps-list">
-                        @foreach (var app in TopApps.Take(5))
-                        {
-                            <div class="top-app-item">
-                                <div class="app-rank">#@(TopApps.IndexOf(app) + 1)</div>
-                                <div class="app-info">
-                                    <span class="app-name">@app.AppName</span>
-                                    <span class="app-usage">@FormatTime(app.TotalTimeInForeground)</span>
+            <!-- Permission Status Cards -->
+            <div class="mb-16">
+                <h2 class="text-3xl font-bold text-gray-900 text-center mb-8">System Status</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Usage Stats Permission -->
+                    <div class="permission-card @(HasUsagePermission ? "granted" : "pending")">
+                        <div class="permission-icon">
+                            @if (HasUsagePermission)
+                            {
+                                <div class="icon-wrapper success">
+                                    <span class="text-2xl">✅</span>
                                 </div>
-                                <div class="usage-bar">
-                                    <div class="usage-fill" style="width: @GetUsagePercentage(app)%"></div>
+                            }
+                            else
+                            {
+                                <div class="icon-wrapper warning">
+                                    <span class="text-2xl">⚠️</span>
+                                </div>
+                            }
+                        </div>
+                        <div class="permission-content">
+                            <h3 class="permission-title">Usage Statistics</h3>
+                            <p class="permission-description">
+                                @(HasUsagePermission ? "Connected - Tracking app usage" : "Required for app monitoring")
+                            </p>
+                            @if (!HasUsagePermission)
+                            {
+                                <button class="permission-action-btn" @onclick="RequestUsagePermission">
+                                    <span>🔓</span>
+                                    <span>Grant Access</span>
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Overlay Permission -->
+                    <div class="permission-card @(HasOverlayPermission ? "granted" : "pending")">
+                        <div class="permission-icon">
+                            @if (HasOverlayPermission)
+                            {
+                                <div class="icon-wrapper success">
+                                    <span class="text-2xl">✅</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="icon-wrapper warning">
+                                    <span class="text-2xl">⚠️</span>
+                                </div>
+                            }
+                        </div>
+                        <div class="permission-content">
+                            <h3 class="permission-title">Display Overlay</h3>
+                            <p class="permission-description">
+                                @(HasOverlayPermission ? "Connected - Can show blocking screen" : "Required for rule enforcement")
+                            </p>
+                            @if (!HasOverlayPermission)
+                            {
+                                <button class="permission-action-btn" @onclick="RequestOverlayPermission">
+                                    <span>🔓</span>
+                                    <span>Grant Access</span>
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Notification Permission -->
+                    <div class="permission-card @(HasNotificationPermission ? "granted" : "optional")">
+                        <div class="permission-icon">
+                            @if (HasNotificationPermission)
+                            {
+                                <div class="icon-wrapper success">
+                                    <span class="text-2xl">✅</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="icon-wrapper info">
+                                    <span class="text-2xl">🔔</span>
+                                </div>
+                            }
+                        </div>
+                        <div class="permission-content">
+                            <h3 class="permission-title">Notifications</h3>
+                            <p class="permission-description">
+                                @(HasNotificationPermission ? "Connected - Alerts enabled" : "Optional for rule notifications")
+                            </p>
+                            @if (!HasNotificationPermission)
+                            {
+                                <button class="permission-action-btn optional" @onclick="RequestNotificationPermission">
+                                    <span>🔔</span>
+                                    <span>Enable</span>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                @if (!HasUsagePermission || !HasOverlayPermission)
+                {
+                    <div class="mt-8 p-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-3xl">
+                        <div class="flex items-start gap-4">
+                            <div class="flex-shrink-0">
+                                <div class="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center">
+                                    <span class="text-xl">⚡</span>
                                 </div>
                             </div>
-                        }
+                            <div>
+                                <h3 class="text-lg font-bold text-amber-900 mb-2">Setup Required</h3>
+                                <p class="text-amber-800 leading-relaxed">
+                                    Usage Meter needs these permissions to monitor your apps and enforce usage limits effectively. 
+                                    Your privacy is protected - all data stays on your device.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (HasUsagePermission)
+            {
+                <!-- Analytics Dashboard -->
+                <div class="mb-16">
+                    <h2 class="text-3xl font-bold text-gray-900 text-center mb-8">Today's Analytics</h2>
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                        <!-- Total Screen Time -->
+                        <div class="stat-card gradient-blue">
+                            <div class="stat-icon">
+                                <span class="text-3xl">⏱️</span>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-value">@(TodayUsage.HasValue ? FormatTime(TodayUsage.Value) : "--")</div>
+                                <div class="stat-label">Screen Time</div>
+                            </div>
+                            <div class="stat-change positive">
+                                <span class="change-icon">📈</span>
+                                <span class="change-text">Today</span>
+                            </div>
+                        </div>
+
+                        <!-- Active Rules -->
+                        <div class="stat-card gradient-purple">
+                            <div class="stat-icon">
+                                <span class="text-3xl">📋</span>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-value">@ActiveRulesCount</div>
+                                <div class="stat-label">Active Rules</div>
+                            </div>
+                            <div class="stat-change">
+                                <span class="change-icon">⚙️</span>
+                                <span class="change-text">Monitoring</span>
+                            </div>
+                        </div>
+
+                        <!-- Apps Monitored -->
+                        <div class="stat-card gradient-green">
+                            <div class="stat-icon">
+                                <span class="text-3xl">📱</span>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-value">@AppsMonitored</div>
+                                <div class="stat-label">Apps Tracked</div>
+                            </div>
+                            <div class="stat-change">
+                                <span class="change-icon">👁️</span>
+                                <span class="change-text">Watching</span>
+                            </div>
+                        </div>
+
+                        <!-- Protection Status -->
+                        <div class="stat-card @(Settings?.AllRulesEnabled == true ? "gradient-success" : "gradient-warning")">
+                            <div class="stat-icon">
+                                <span class="text-3xl">@(Settings?.AllRulesEnabled == true ? "🛡️" : "⏸️")</span>
+                            </div>
+                            <div class="stat-content">
+                                <div class="stat-value">@(Settings?.AllRulesEnabled == true ? "ON" : "OFF")</div>
+                                <div class="stat-label">Protection</div>
+                            </div>
+                            <div class="stat-change @(Settings?.AllRulesEnabled == true ? "positive" : "negative")">
+                                <span class="change-icon">@(Settings?.AllRulesEnabled == true ? "✅" : "❌")</span>
+                                <span class="change-text">@(Settings?.AllRulesEnabled == true ? "Active" : "Paused")</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            }
-        }
 
-        <div class="quick-actions">
-            <h2 class="section-title">⚡ Quick Actions</h2>
-            <div class="action-buttons">
-                <button class="action-btn" @onclick='() => Navigation.NavigateTo("/rules/edit/new")'>
-                    <span class="action-icon">➕</span>
-                    <span>Create Rule</span>
-                </button>
-                <button class="action-btn" @onclick='() => Navigation.NavigateTo("/android-usage")'>
-                    <span class="action-icon">📊</span>
-                    <span>View Usage</span>
-                </button>
-                <button class="action-btn" @onclick='() => Navigation.NavigateTo("/settings")'>
-                    <span class="action-icon">⚙️</span>
-                    <span>Settings</span>
-                </button>
-                <button class="action-btn" @onclick="RefreshData">
-                    <span class="action-icon">🔄</span>
-                    <span>Refresh</span>
-                </button>
+                @if (TopApps?.Any() == true)
+                {
+                    <!-- Top Apps Section -->
+                    <div class="mb-16">
+                        <div class="bg-white rounded-3xl shadow-xl p-8">
+                            <div class="flex items-center justify-between mb-8">
+                                <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                                    <span class="text-3xl">🏆</span>
+                                    <span>Most Used Apps Today</span>
+                                </h2>
+                                <button class="text-blue-600 hover:text-blue-700 font-medium text-sm" @onclick='() => Navigation.NavigateTo("/android-usage")'>
+                                    View All →
+                                </button>
+                            </div>
+                            
+                            <div class="space-y-4">
+                                @for (int i = 0; i < Math.Min(TopApps.Count, 5); i++)
+                                {
+                                    var app = TopApps[i];
+                                    var percentage = GetUsagePercentage(app);
+                                    var rank = i + 1;
+                                    
+                                    <div class="top-app-item">
+                                        <div class="app-rank rank-@rank">
+                                            <span class="rank-number">@rank</span>
+                                        </div>
+                                        <div class="app-details">
+                                            <div class="app-info">
+                                                <span class="app-name">@app.AppName</span>
+                                                <span class="app-usage">@FormatTime(app.TotalTimeInForeground)</span>
+                                            </div>
+                                            <div class="usage-progress">
+                                                <div class="progress-bar-modern">
+                                                    <div class="progress-fill-modern rank-@rank" style="width: @percentage%"></div>
+                                                </div>
+                                                <span class="usage-percentage">@percentage.ToString("F1")%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+
+            <!-- Quick Actions -->
+            <div class="mb-16">
+                <h2 class="text-3xl font-bold text-gray-900 text-center mb-8">Quick Actions</h2>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                    <button class="action-card" @onclick='() => Navigation.NavigateTo("/rules/edit/new")'>
+                        <div class="action-icon create">
+                            <span class="text-2xl">➕</span>
+                        </div>
+                        <div class="action-content">
+                            <span class="action-title">Create Rule</span>
+                            <span class="action-subtitle">Set new limits</span>
+                        </div>
+                    </button>
+
+                    <button class="action-card" @onclick='() => Navigation.NavigateTo("/android-usage")'>
+                        <div class="action-icon analytics">
+                            <span class="text-2xl">📊</span>
+                        </div>
+                        <div class="action-content">
+                            <span class="action-title">View Analytics</span>
+                            <span class="action-subtitle">Usage insights</span>
+                        </div>
+                    </button>
+
+                    <button class="action-card" @onclick='() => Navigation.NavigateTo("/settings")'>
+                        <div class="action-icon settings">
+                            <span class="text-2xl">⚙️</span>
+                        </div>
+                        <div class="action-content">
+                            <span class="action-title">Settings</span>
+                            <span class="action-subtitle">Customize app</span>
+                        </div>
+                    </button>
+
+                    <button class="action-card" @onclick="RefreshData">
+                        <div class="action-icon refresh">
+                            <span class="text-2xl">🔄</span>
+                        </div>
+                        <div class="action-content">
+                            <span class="action-title">Refresh</span>
+                            <span class="action-subtitle">Update data</span>
+                        </div>
+                    </button>
+                </div>
             </div>
-        </div>
-    }
-    else
-    {
-        <div class="platform-notice">
-            <div class="notice-icon">📱</div>
-            <h2>Android Device Required</h2>
-            <p>This app is designed specifically for Android devices to help manage app usage and screen time.</p>
-            <p>The main features (Rules and App Usage tracking) require Android's usage statistics API.</p>
-        </div>
-    }
+        }
+        else
+        {
+            <!-- Platform Notice -->
+            <div class="max-w-2xl mx-auto">
+                <div class="bg-white rounded-3xl shadow-xl p-12 text-center">
+                    <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full mb-8">
+                        <span class="text-3xl">📱</span>
+                    </div>
+                    <h2 class="text-3xl font-bold text-gray-900 mb-6">Android Required</h2>
+                    <div class="space-y-4 text-gray-600 text-lg leading-relaxed">
+                        <p>Usage Meter is specifically designed for Android devices to help you manage app usage and screen time effectively.</p>
+                        <p>The core features like Rules and App Usage tracking require Android's usage statistics API to function properly.</p>
+                    </div>
+                    <div class="mt-8 p-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl">
+                        <h3 class="font-bold text-gray-900 mb-2">Why Android?</h3>
+                        <div class="text-sm text-gray-600 space-y-2">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                <span>Deep system integration for accurate monitoring</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                <span>Real-time app usage statistics</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-2 h-2 bg-blue-500 rounded-full"></span>
+                                <span>Advanced rule enforcement capabilities</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
 </div>
+
+<style>
+/* Modern Home Page Styles */
+.permission-card {
+    background: white;
+    border-radius: 1.5rem;
+    padding: 2rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    border: 1px solid transparent;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.permission-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 2px;
+    background: linear-gradient(135deg, transparent, transparent);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: xor;
+    transition: background 0.3s ease;
+}
+
+.permission-card.granted::before {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.permission-card.pending::before {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.permission-card.optional::before {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.permission-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.permission-icon {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.icon-wrapper {
+    width: 4rem;
+    height: 4rem;
+    border-radius: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.icon-wrapper.success {
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+}
+
+.icon-wrapper.warning {
+    background: linear-gradient(135deg, #fffbeb, #fef3c7);
+}
+
+.icon-wrapper.info {
+    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+}
+
+.permission-content {
+    text-align: center;
+}
+
+.permission-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+}
+
+.permission-description {
+    color: #6b7280;
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+}
+
+.permission-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: white;
+    border: none;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.permission-action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.permission-action-btn.optional {
+    background: linear-gradient(135deg, #6b7280, #4b5563);
+}
+
+/* Stat Cards */
+.stat-card {
+    background: white;
+    border-radius: 1.5rem;
+    padding: 2rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.1;
+    border-radius: inherit;
+}
+
+.stat-card.gradient-blue::before {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.stat-card.gradient-purple::before {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+.stat-card.gradient-green::before {
+    background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.stat-card.gradient-success::before {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+.stat-card.gradient-warning::before {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.stat-icon {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.stat-content {
+    text-align: center;
+    position: relative;
+    z-index: 1;
+    margin-bottom: 1rem;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #1f2937;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.875rem;
+}
+
+.stat-change {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    position: relative;
+    z-index: 1;
+    padding: 0.5rem 1rem;
+    border-radius: 0.75rem;
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.stat-change.positive {
+    background: rgba(34, 197, 94, 0.1);
+    color: #166534;
+}
+
+.stat-change.negative {
+    background: rgba(239, 68, 68, 0.1);
+    color: #991b1b;
+}
+
+.change-text {
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+/* Top Apps */
+.top-app-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+    border-radius: 1rem;
+    transition: all 0.2s ease;
+}
+
+.top-app-item:hover {
+    transform: translateX(4px);
+    background: linear-gradient(135deg, #f1f5f9, #e2e8f0);
+}
+
+.app-rank {
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    color: white;
+    flex-shrink: 0;
+}
+
+.app-rank.rank-1 {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+}
+
+.app-rank.rank-2 {
+    background: linear-gradient(135deg, #9ca3af, #6b7280);
+}
+
+.app-rank.rank-3 {
+    background: linear-gradient(135deg, #f97316, #ea580c);
+}
+
+.app-rank.rank-4,
+.app-rank.rank-5 {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.app-details {
+    flex: 1;
+}
+
+.app-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.app-name {
+    font-weight: 700;
+    color: #1f2937;
+}
+
+.app-usage {
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.usage-progress {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.progress-bar-modern {
+    flex: 1;
+    height: 0.5rem;
+    background: #e5e7eb;
+    border-radius: 0.25rem;
+    overflow: hidden;
+}
+
+.progress-fill-modern {
+    height: 100%;
+    border-radius: inherit;
+    transition: width 0.5s ease;
+}
+
+.progress-fill-modern.rank-1 {
+    background: linear-gradient(90deg, #fbbf24, #f59e0b);
+}
+
+.progress-fill-modern.rank-2 {
+    background: linear-gradient(90deg, #9ca3af, #6b7280);
+}
+
+.progress-fill-modern.rank-3 {
+    background: linear-gradient(90deg, #f97316, #ea580c);
+}
+
+.progress-fill-modern.rank-4,
+.progress-fill-modern.rank-5 {
+    background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+}
+
+.usage-percentage {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #6b7280;
+}
+
+/* Action Cards */
+.action-card {
+    background: white;
+    border-radius: 1.5rem;
+    padding: 2rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    text-align: center;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.action-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent, rgba(255, 255, 255, 0.1));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.action-card:hover::before {
+    opacity: 1;
+}
+
+.action-card:hover {
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.action-icon {
+    width: 4rem;
+    height: 4rem;
+    border-radius: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+.action-icon.create {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+.action-icon.analytics {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.action-icon.settings {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+.action-icon.refresh {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.action-content {
+    position: relative;
+    z-index: 1;
+}
+
+.action-title {
+    display: block;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 0.25rem;
+}
+
+.action-subtitle {
+    display: block;
+    font-size: 0.875rem;
+    color: #6b7280;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .stat-card {
+        padding: 1.5rem;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+    }
+    
+    .permission-card {
+        padding: 1.5rem;
+    }
+    
+    .action-card {
+        padding: 1.5rem;
+    }
+    
+    .top-app-item {
+        padding: 1rem;
+    }
+    
+    .app-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+}
+</style>
 
 @code {
     private bool HasUsagePermission = false;
@@ -182,7 +789,7 @@
         {
             await LoadDashboardData();
             
-            // Refresh permissions and service status every 10 seconds
+            // Refresh permissions and service status every 15 seconds
             _refreshTimer = new Timer(async _ => 
             {
                 try
@@ -197,7 +804,7 @@
                 {
                     System.Diagnostics.Debug.WriteLine($"Timer error: {ex}");
                 }
-            }, null, TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(15));
+            }, null, TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(20));
         }
         catch (Exception ex)
         {
@@ -270,7 +877,7 @@
             }
             else
             {
-                HasOverlayPermission = true; // Older Android versions don't need this
+                HasOverlayPermission = true;
             }
 
             // Check notification permission
@@ -280,7 +887,7 @@
             }
             else
             {
-                HasNotificationPermission = true; // Older versions don't need explicit permission
+                HasNotificationPermission = true;
             }
 #endif
         }
@@ -355,10 +962,10 @@
         try
         {
             var hour = DateTime.Now.Hour;
-            if (hour < 12) return "Good morning! Let's make today productive.";
-            if (hour < 17) return "Good afternoon! Stay focused on what matters.";
-            if (hour < 21) return "Good evening! Time to wind down.";
-            return "Good night! Consider taking a break from screens.";
+            if (hour < 12) return "Good Morning!";
+            if (hour < 17) return "Good Afternoon!";
+            if (hour < 21) return "Good Evening!";
+            return "Good Night!";
         }
         catch
         {

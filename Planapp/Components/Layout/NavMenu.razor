@@ -2,41 +2,66 @@
 @inject NavigationManager Navigation
 @implements IDisposable
 
-<!-- Brand Header -->
-<div class="flex items-center justify-center p-6 border-b border-white/10">
-    <a class="flex items-center gap-3 text-white no-underline hover:text-white/90 transition-colors" href="">
-        <span class="text-2xl">📱</span>
-        <span class="text-xl font-bold">Usage Meter</span>
+<!-- Modern Brand Header with Glassmorphism -->
+<div class="brand-header">
+    <a class="brand-link" href="">
+        <div class="brand-icon">
+            <span class="icon-emoji">📱</span>
+            <div class="icon-glow"></div>
+        </div>
+        <div class="brand-text">
+            <span class="brand-title">Usage Meter</span>
+            <span class="brand-subtitle">Smart Analytics</span>
+        </div>
     </a>
 </div>
 
-<!-- Navigation Menu -->
-<div class="flex-1 px-4 py-6 overflow-y-auto @(CollapseMenu ? "hidden lg:block" : "block")" @onclick:stopPropagation="true">
-    <nav class="space-y-2">
-        <!-- Main Navigation -->
-        <div class="space-y-1">
-            <NavLink class="nav-item" href="" Match="NavLinkMatch.All" @onclick="@CloseMenu">
-                <span class="nav-icon">🏠</span>
-                <span class="nav-text">Dashboard</span>
-            </NavLink>
-
-            <NavLink class="nav-item" href="rules" @onclick="@CloseMenu">
-                <span class="nav-icon">📋</span>
-                <span class="nav-text">Rules</span>
-            </NavLink>
-
-            @if (DeviceInfo.Platform == DevicePlatform.Android)
-            {
-                <NavLink class="nav-item" href="android-usage" @onclick="@CloseMenu">
-                    <span class="nav-icon">📊</span>
-                    <span class="nav-text">App Usage</span>
+<!-- Modern Navigation Menu -->
+<div class="nav-container @(CollapseMenu ? "nav-collapsed" : "nav-expanded")" @onclick:stopPropagation="true">
+    <nav class="nav-menu">
+        <!-- Main Navigation Section -->
+        <div class="nav-section">
+            <div class="nav-section-title">Main</div>
+            <div class="nav-items">
+                <NavLink class="nav-item" href="" Match="NavLinkMatch.All" @onclick="@CloseMenu">
+                    <div class="nav-item-icon">
+                        <span class="nav-emoji">🏠</span>
+                        <div class="nav-icon-bg dashboard"></div>
+                    </div>
+                    <span class="nav-text">Dashboard</span>
+                    <div class="nav-indicator"></div>
                 </NavLink>
-            }
 
-            <NavLink class="nav-item" href="settings" @onclick="@CloseMenu">
-                <span class="nav-icon">⚙️</span>
-                <span class="nav-text">Settings</span>
-            </NavLink>
+                <NavLink class="nav-item" href="rules" @onclick="@CloseMenu">
+                    <div class="nav-item-icon">
+                        <span class="nav-emoji">📋</span>
+                        <div class="nav-icon-bg rules"></div>
+                    </div>
+                    <span class="nav-text">Rules</span>
+                    <div class="nav-indicator"></div>
+                </NavLink>
+
+                @if (DeviceInfo.Platform == DevicePlatform.Android)
+                {
+                    <NavLink class="nav-item" href="android-usage" @onclick="@CloseMenu">
+                        <div class="nav-item-icon">
+                            <span class="nav-emoji">📊</span>
+                            <div class="nav-icon-bg analytics"></div>
+                        </div>
+                        <span class="nav-text">App Usage</span>
+                        <div class="nav-indicator"></div>
+                    </NavLink>
+                }
+
+                <NavLink class="nav-item" href="settings" @onclick="@CloseMenu">
+                    <div class="nav-item-icon">
+                        <span class="nav-emoji">⚙️</span>
+                        <div class="nav-icon-bg settings"></div>
+                    </div>
+                    <span class="nav-text">Settings</span>
+                    <div class="nav-indicator"></div>
+                </NavLink>
+            </div>
         </div>
 
         @{
@@ -48,132 +73,434 @@
 
         @if (isDebugBuild)
         {
-            <!-- Debug Section -->
-            <div class="pt-6">
-                <div class="nav-section-title">Debug Tools</div>
-                <div class="space-y-1 mt-3">
-                    <NavLink class="nav-item debug" href="rule-test" @onclick="@CloseMenu">
-                        <span class="nav-icon">🧪</span>
+            <!-- Debug Tools Section -->
+            <div class="nav-section debug-section">
+                <div class="nav-section-title">Developer Tools</div>
+                <div class="nav-items">
+                    <NavLink class="nav-item debug-item" href="rule-test" @onclick="@CloseMenu">
+                        <div class="nav-item-icon">
+                            <span class="nav-emoji">🧪</span>
+                            <div class="nav-icon-bg debug"></div>
+                        </div>
                         <span class="nav-text">Test Rules</span>
+                        <div class="nav-indicator"></div>
                     </NavLink>
-                    <NavLink class="nav-item debug" href="launch-test" @onclick="@CloseMenu">
-                        <span class="nav-icon">🚀</span>
+
+                    <NavLink class="nav-item debug-item" href="launch-test" @onclick="@CloseMenu">
+                        <div class="nav-item-icon">
+                            <span class="nav-emoji">🚀</span>
+                            <div class="nav-icon-bg debug"></div>
+                        </div>
                         <span class="nav-text">Launch Test</span>
+                        <div class="nav-indicator"></div>
                     </NavLink>
-                    <NavLink class="nav-item debug" href="app-launcher-test" @onclick="@CloseMenu">
-                        <span class="nav-icon">📱</span>
+
+                    <NavLink class="nav-item debug-item" href="app-launcher-test" @onclick="@CloseMenu">
+                        <div class="nav-item-icon">
+                            <span class="nav-emoji">📱</span>
+                            <div class="nav-icon-bg debug"></div>
+                        </div>
                         <span class="nav-text">App Launcher</span>
+                        <div class="nav-indicator"></div>
                     </NavLink>
                 </div>
             </div>
         }
+
+        <!-- Footer Info -->
+        <div class="nav-footer">
+            <div class="footer-content">
+                <div class="app-version">v1.0.0</div>
+                <div class="footer-text">Built with ❤️</div>
+            </div>
+        </div>
     </nav>
 </div>
 
 <style>
-    /* Navigation Item Styles */
-    .nav-item {
+    /* Modern Navigation Styles */
+    .brand-header {
+        position: relative;
+        padding: 2rem 1.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+    }
+
+    .brand-link {
         display: flex;
         align-items: center;
-        gap: 0.75rem;
-        padding: 0.75rem 1rem;
-        color: rgba(255, 255, 255, 0.8);
+        gap: 1rem;
         text-decoration: none;
-        border-radius: 0.5rem;
-        transition: all 0.2s ease;
-        font-weight: 500;
+        color: inherit;
+        transition: all 0.3s ease;
+    }
+
+        .brand-link:hover {
+            color: rgba(255, 255, 255, 0.9);
+            transform: translateY(-1px);
+        }
+
+    .brand-icon {
         position: relative;
+        width: 3rem;
+        height: 3rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
-        .nav-item:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            text-decoration: none;
-            transform: translateX(4px);
-        }
-
-        .nav-item:focus {
-            outline: 2px solid rgba(255, 255, 255, 0.3);
-            outline-offset: 2px;
-            color: white;
-            text-decoration: none;
-        }
-
-        /* Active state */
-        .nav-item.active {
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
-            font-weight: 600;
-        }
-
-            .nav-item.active::before {
-                content: '';
-                position: absolute;
-                left: 0;
-                top: 0;
-                bottom: 0;
-                width: 3px;
-                background: white;
-                border-radius: 0 2px 2px 0;
-            }
-
-    /* Navigation Icons */
-    .nav-icon {
-        font-size: 1.25rem;
-        flex-shrink: 0;
-        width: 1.5rem;
-        text-align: center;
+    .icon-emoji {
+        font-size: 1.8rem;
+        position: relative;
+        z-index: 2;
     }
 
-    .nav-text {
-        font-size: 0.95rem;
+    .icon-glow {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
+        border-radius: 50%;
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100%
+
+    {
+        opacity: 0.7;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 1;
+        transform: scale(1.1);
+    }
+
+    }
+
+    .brand-text {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    .brand-title {
+        font-size: 1.5rem;
+        font-weight: 700;
         line-height: 1;
+        background: linear-gradient(135deg, #ffffff, #e0e7ff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
     }
 
-    /* Debug items */
-    .nav-item.debug {
-        color: rgba(255, 255, 255, 0.6);
-        font-size: 0.9rem;
-    }
-
-        .nav-item.debug:hover {
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-    /* Section Title */
-    .nav-section-title {
+    .brand-subtitle {
         font-size: 0.75rem;
-        font-weight: 600;
+        opacity: 0.7;
+        font-weight: 500;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: rgba(255, 255, 255, 0.5);
+    }
+
+    /* Navigation Container */
+    .nav-container {
+        flex: 1;
+        padding: 1rem 0;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+    }
+
+        .nav-container::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .nav-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .nav-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+        }
+
+            .nav-container::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 255, 255, 0.3);
+            }
+
+    /* Navigation Menu */
+    .nav-menu {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
         padding: 0 1rem;
     }
 
-    /* Mobile adjustments */
+    /* Navigation Sections */
+    .nav-section {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .debug-section {
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding-top: 1.5rem;
+    }
+
+    .nav-section-title {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: rgba(255, 255, 255, 0.6);
+        padding: 0 1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .nav-items {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    /* Navigation Items */
+    .nav-item {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        color: rgba(255, 255, 255, 0.8);
+        text-decoration: none;
+        border-radius: 1rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid transparent;
+        backdrop-filter: blur(10px);
+        overflow: hidden;
+    }
+
+        .nav-item::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            border-radius: inherit;
+        }
+
+        .nav-item:hover::before {
+            opacity: 1;
+        }
+
+        .nav-item:hover {
+            color: white;
+            transform: translateX(8px) scale(1.02);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .nav-item.active {
+            color: white;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.08));
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateX(4px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+            .nav-item.active .nav-indicator {
+                opacity: 1;
+                transform: scaleY(1);
+            }
+
+    /* Navigation Item Icons */
+    .nav-item-icon {
+        position: relative;
+        width: 2.5rem;
+        height: 2.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.75rem;
+        overflow: hidden;
+    }
+
+    .nav-emoji {
+        font-size: 1.25rem;
+        position: relative;
+        z-index: 2;
+    }
+
+    .nav-icon-bg {
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        opacity: 0.8;
+        transition: all 0.3s ease;
+    }
+
+        .nav-icon-bg.dashboard {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        }
+
+        .nav-icon-bg.rules {
+            background: linear-gradient(135deg, #10b981, #047857);
+        }
+
+        .nav-icon-bg.analytics {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .nav-icon-bg.settings {
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+        }
+
+        .nav-icon-bg.debug {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+
+    .nav-item:hover .nav-icon-bg {
+        opacity: 1;
+        transform: scale(1.1);
+    }
+
+    /* Navigation Text */
+    .nav-text {
+        font-size: 0.95rem;
+        font-weight: 500;
+        line-height: 1;
+        flex: 1;
+    }
+
+    /* Navigation Indicator */
+    .nav-indicator {
+        position: absolute;
+        left: 0;
+        top: 20%;
+        bottom: 20%;
+        width: 3px;
+        background: linear-gradient(to bottom, #ffffff, #e0e7ff);
+        border-radius: 0 2px 2px 0;
+        opacity: 0;
+        transform: scaleY(0);
+        transition: all 0.3s ease;
+    }
+
+    /* Debug Items */
+    .debug-item {
+        opacity: 0.7;
+        font-size: 0.9rem;
+    }
+
+        .debug-item:hover {
+            opacity: 0.9;
+        }
+
+        .debug-item .nav-text {
+            font-size: 0.85rem;
+        }
+
+    /* Navigation Footer */
+    .nav-footer {
+        margin-top: auto;
+        padding: 1rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .footer-content {
+        text-align: center;
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    .app-version {
+        font-size: 0.7rem;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+        font-family: monospace;
+    }
+
+    .footer-text {
+        font-size: 0.65rem;
+        opacity: 0.7;
+    }
+
+    /* Mobile Responsive */
     @media (max-width: 1023px) {
-        .nav-item
+        .nav-container.nav-collapsed
 
     {
-        padding: 1rem;
+        display: none;
+    }
+
+    .nav-container.nav-expanded {
+        display: block;
+    }
+
+    .nav-item {
+        padding: 1.25rem 1rem;
         font-size: 1rem;
     }
 
-    .nav-icon {
+    .nav-item-icon {
+        width: 3rem;
+        height: 3rem;
+    }
+
+    .nav-emoji {
         font-size: 1.5rem;
-        width: 2rem;
     }
 
     .nav-text {
         font-size: 1rem;
     }
 
+    .brand-header {
+        padding: 1.5rem;
     }
 
-    /* Focus and accessibility */
+    .brand-title {
+        font-size: 1.75rem;
+    }
+
+    }
+
+    /* Focus and Accessibility */
     .nav-item:focus-visible {
         outline: 2px solid rgba(255, 255, 255, 0.8);
         outline-offset: 2px;
+    }
+
+    /* Reduced Motion */
+    @media (prefers-reduced-motion: reduce) {
+        *
+
+    {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    .icon-glow {
+        animation: none;
+    }
+
+    }
+
+    /* High Contrast Mode */
+    @media (prefers-contrast: high) {
+        .nav-item
+
+    {
+        border: 2px solid rgba(255, 255, 255, 0.8);
+    }
+
+    .nav-item.active {
+        border-color: white;
+        background: rgba(255, 255, 255, 0.2);
+    }
+
     }
 </style>
 
