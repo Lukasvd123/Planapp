@@ -4,148 +4,193 @@
 @using Microsoft.AspNetCore.Components.Rendering
 @using System.Collections.Concurrent
 
-<div class="page-header">
-    <h1>📱 App Usage Statistics</h1>
-    <p class="page-subtitle">Track your daily app usage and screen time</p>
-</div>
+<div class="max-w-7xl mx-auto p-6">
+    <!-- Modern Header -->
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-3">📱 App Usage Statistics</h1>
+        <p class="text-lg text-gray-600 max-w-2xl mx-auto">Track your daily app usage and screen time</p>
+    </div>
 
-@if (!HasPermission)
-{
-    <div class="permission-card">
-        <div class="permission-icon">🔒</div>
-        <div class="permission-content">
-            <h3>Permission Required</h3>
-            <p>To view your app usage statistics, please grant access to usage data in your device settings.</p>
-            <button class="btn btn-primary" @onclick="OpenSettings">
-                <span class="btn-icon">⚙️</span>
+    @if (!HasPermission)
+    {
+        <!-- Permission Required -->
+        <div class="card p-8 text-center bg-gradient-to-br from-primary-500 to-secondary-500 text-white mb-8">
+            <div class="text-4xl mb-4">🔒</div>
+            <h3 class="text-xl font-semibold mb-3">Permission Required</h3>
+            <p class="mb-6 text-primary-100 max-w-md mx-auto">
+                To view your app usage statistics, please grant access to usage data in your device settings.
+            </p>
+            <button class="btn bg-white text-primary-600 hover:bg-gray-100 btn-lg" @onclick="OpenSettings">
+                <span class="text-lg">⚙️</span>
                 Grant Permission
             </button>
         </div>
-    </div>
-}
-else if (AppUsages == null)
-{
-    <div class="loading-card">
-        <div class="loading-spinner"></div>
-        <h3>Loading your usage data...</h3>
-        <p>This may take a moment</p>
-    </div>
-}
-else if (AppUsages.Count == 0)
-{
-    <div class="no-data-card">
-        <div class="no-data-icon">📊</div>
-        <h3>No Usage Data Available</h3>
-        <p>We couldn't find any app usage data. This might happen because:</p>
-        <ul>
-            <li>No apps were used recently</li>
-            <li>Usage statistics are still being collected</li>
-            <li>Permission was recently granted</li>
-        </ul>
-        <button class="btn btn-secondary" @onclick="RefreshData">
-            <span class="btn-icon">🔄</span>
-            Refresh Data
-        </button>
-    </div>
-}
-else
-{
-    <div class="stats-overview">
-        <div class="stat-card">
-            <div class="stat-number">@AppUsages.Count</div>
-            <div class="stat-label">Apps Tracked</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-number">@FormatTimeShort(AppUsages.Sum(a => a.TotalTimeInForeground))</div>
-            <div class="stat-label">Total Screen Time</div>
-        </div>
-        <div class="stat-card">
-            <div class="stat-number">@AppUsages.Count(a => a.TotalTimeInForeground > 0)</div>
-            <div class="stat-label">Apps Used Today</div>
-        </div>
-    </div>
-
-    @* Debug info - remove in production *@
-    @if (AppUsages != null && AppUsages.Count > 0)
+    }
+    else if (AppUsages == null)
     {
-        <div style="background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; font-size: 0.8rem; color: #666;">
-            <strong>Debug Info:</strong> Found @AppUsages.Count apps, 
-            @AppUsages.Count(a => a.TotalTimeInForeground > 0) with usage > 0ms.
-            Top 3: @string.Join(", ", AppUsages.Take(3).Select(a => $"{a.AppName} ({FormatTime(a.TotalTimeInForeground)})"))
+        <!-- Loading State -->
+        <div class="card p-8 text-center">
+            <div class="loading-spinner mx-auto mb-4"></div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">Loading your usage data...</h3>
+            <p class="text-gray-600">This may take a moment</p>
         </div>
     }
-
-    <div class="section-header">
-        <h2>📈 App Usage Breakdown</h2>
-        <div class="controls">
-            <label class="filter-toggle">
-                <input type="checkbox" @onchange="OnFilterChanged" checked="@ShowOnlyUsedApps" />
-                Show only used apps
-            </label>
-            <button class="btn-refresh" @onclick="RefreshData" disabled="@IsRefreshing">
-                <span class="refresh-icon @(IsRefreshing ? "spinning" : "")">🔄</span>
-                @(IsRefreshing ? "Refreshing..." : "Refresh")
+    else if (AppUsages.Count == 0)
+    {
+        <!-- No Data -->
+        <div class="card p-8 text-center">
+            <div class="text-4xl mb-4">📊</div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-3">No Usage Data Available</h3>
+            <p class="text-gray-600 mb-6">We couldn't find any app usage data. This might happen because:</p>
+            <ul class="text-sm text-gray-600 mb-6 space-y-1 max-w-md mx-auto">
+                <li>• No apps were used recently</li>
+                <li>• Usage statistics are still being collected</li>
+                <li>• Permission was recently granted</li>
+            </ul>
+            <button class="btn btn-secondary" @onclick="RefreshData">
+                <span>🔄</span>
+                Refresh Data
             </button>
         </div>
-    </div>
+    }
+    else
+    {
+        <!-- Stats Overview -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div class="card p-6 text-center bg-gradient-to-br from-primary-500 to-primary-600 text-white">
+                <div class="text-2xl font-bold mb-1">@AppUsages.Count</div>
+                <div class="text-sm text-primary-100">Apps Tracked</div>
+            </div>
+            <div class="card p-6 text-center bg-gradient-to-br from-secondary-500 to-secondary-600 text-white">
+                <div class="text-2xl font-bold mb-1">@FormatTimeShort(AppUsages.Sum(a => a.TotalTimeInForeground))</div>
+                <div class="text-sm text-secondary-100">Total Screen Time</div>
+            </div>
+            <div class="card p-6 text-center bg-gradient-to-br from-success-500 to-success-600 text-white">
+                <div class="text-2xl font-bold mb-1">@AppUsages.Count(a => a.TotalTimeInForeground > 0)</div>
+                <div class="text-sm text-success-100">Apps Used Today</div>
+            </div>
+            <div class="card p-6 text-center bg-gradient-to-br from-warning-500 to-warning-600 text-white">
+                <div class="text-2xl font-bold mb-1">@(AppUsages.Where(a => a.TotalTimeInForeground > 0).Count() > 0 ? "Active" : "Idle")</div>
+                <div class="text-sm text-warning-100">Status</div>
+            </div>
+        </div>
 
-    <div class="usage-grid">
+        <!-- Controls -->
+        <div class="card p-6 mb-6">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <h2 class="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                    <span>📈</span>
+                    App Usage Breakdown
+                </h2>
+                
+                <div class="flex items-center gap-4">
+                    <!-- Filter Toggle -->
+                    <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                        <input type="checkbox" 
+                               class="form-checkbox" 
+                               @onchange="OnFilterChanged" 
+                               checked="@ShowOnlyUsedApps" />
+                        Show only used apps
+                    </label>
+                    
+                    <!-- Refresh Button -->
+                    <button class="btn btn-primary" @onclick="RefreshData" disabled="@IsRefreshing">
+                        <span class="@(IsRefreshing ? "animate-spin" : "")">🔄</span>
+                        @(IsRefreshing ? "Refreshing..." : "Refresh")
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Apps Grid -->
         @{
             var totalTime = FilteredApps.Sum(a => a.TotalTimeInForeground);
             var maxToShow = 100;
         }
-        @foreach (var app in FilteredApps.Take(maxToShow))
-        {
-            var percentage = totalTime > 0 ? (double)app.TotalTimeInForeground / totalTime * 100 : 0;
-            var isTopApp = FilteredApps.IndexOf(app) < 3 && app.TotalTimeInForeground > 0;
-            
-            <div class="usage-card @(isTopApp ? "top-app" : "")" @key="app.PackageName">
-                <div class="app-header">
-                    <div class="app-icon-container">
-                        @RenderAppIcon(app.PackageName, app.AppName)
-                        @if (isTopApp)
-                        {
-                            <div class="top-badge">@(FilteredApps.Where(a => a.TotalTimeInForeground > 0).ToList().IndexOf(app) + 1)</div>
-                        }
-                    </div>
-                    <div class="app-info">
-                        <h3 class="app-name" title="@app.AppName">@app.AppName</h3>
-                        <p class="package-name" title="@app.PackageName">@app.PackageName</p>
-                    </div>
-                </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+            @foreach (var app in FilteredApps.Take(maxToShow))
+            {
+                var percentage = totalTime > 0 ? (double)app.TotalTimeInForeground / totalTime * 100 : 0;
+                var isTopApp = FilteredApps.IndexOf(app) < 3 && app.TotalTimeInForeground > 0;
                 
-                <div class="usage-stats">
-                    <div class="primary-stat">@FormatTime(app.TotalTimeInForeground)</div>
-                    @if (app.TotalTimeInForeground > 0)
-                    {
-                        <div class="percentage-stat">@percentage.ToString("F1")% of total time</div>
-                        
-                        <div class="progress-container">
-                            <div class="progress-bar">
-                                <div class="progress-fill @GetProgressColorClass(percentage)" 
-                                     style="width: @Math.Max(percentage, 2)%"></div>
-                            </div>
+                <div class="card p-6 transition-all duration-200 hover:shadow-lg @(isTopApp ? "ring-2 ring-warning-400 bg-gradient-to-br from-warning-50 to-orange-50" : "")" 
+                     @key="app.PackageName">
+                    
+                    <!-- App Header -->
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="relative flex-shrink-0">
+                            <LazyAppIcon PackageName="@app.PackageName" 
+                                        AppName="@app.AppName" 
+                                        Size="56" 
+                                        EnableLazyLoading="true"
+                                        ShowBadge="@isTopApp"
+                                        BadgeText="@(isTopApp ? (FilteredApps.Where(a => a.TotalTimeInForeground > 0).ToList().IndexOf(app) + 1).ToString() : "")" />
                         </div>
-                    }
-                    else
-                    {
-                        <div class="percentage-stat">Not used today</div>
-                    }
+                        <div class="min-w-0 flex-1">
+                            <h3 class="font-semibold text-gray-900 truncate mb-1" title="@app.AppName">@app.AppName</h3>
+                            <p class="text-xs text-gray-500 truncate" title="@app.PackageName">@app.PackageName</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Usage Stats -->
+                    <div class="space-y-3">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-gray-900 mb-1">@FormatTime(app.TotalTimeInForeground)</div>
+                            @if (app.TotalTimeInForeground > 0)
+                            {
+                                <div class="text-sm text-gray-600 mb-3">@percentage.ToString("F1")% of total time</div>
+                                
+                                <!-- Progress Bar -->
+                                <div class="progress-bar">
+                                    <div class="progress-fill @GetProgressColorClass(percentage)" 
+                                         style="width: @Math.Max(percentage, 2)%"></div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-sm text-gray-500 mb-3">Not used today</div>
+                                <div class="progress-bar">
+                                    <div class="h-full bg-gray-200 rounded"></div>
+                                </div>
+                            }
+                        </div>
+                    </div>
                 </div>
-            </div>
-        }
+            }
+        </div>
         
         @if (FilteredApps.Count > maxToShow)
         {
-            <div class="show-more-card">
-                <div class="show-more-content">
-                    <h3>@(FilteredApps.Count - maxToShow) more apps</h3>
-                    <p>Showing top @maxToShow apps</p>
-                </div>
+            <div class="card p-6 text-center bg-gray-50">
+                <h3 class="font-semibold text-gray-900 mb-2">@(FilteredApps.Count - maxToShow) more apps</h3>
+                <p class="text-sm text-gray-600">Showing top @maxToShow apps</p>
             </div>
         }
-    </div>
+    }
+</div>
+
+<style>
+.animate-spin {
+    animation: spin 1s linear infinite;
 }
+
+.form-checkbox {
+    width: 1rem;
+    height: 1rem;
+    border-radius: 0.25rem;
+    border: 1px solid var(--gray-300);
+}
+
+.max-w-7xl {
+    max-width: 80rem;
+}
+
+.mx-auto {
+    margin-left: auto;
+    margin-right: auto;
+}
+</style>
 
 @code {
     private List<com.usagemeter.androidapp.Services.AppUsageInfo>? AppUsages;
@@ -153,7 +198,6 @@ else
     private bool HasPermission = false;
     private bool IsRefreshing = false;
     private bool ShowOnlyUsedApps = true;
-    private readonly ConcurrentDictionary<string, string> IconDataUrls = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -197,7 +241,6 @@ else
         IsRefreshing = true;
         AppUsages = null;
         FilteredApps.Clear();
-        IconDataUrls.Clear();
         StateHasChanged();
         
         await Task.Delay(500);
@@ -215,10 +258,10 @@ else
     {
         return percentage switch
         {
-            >= 30 => "high-usage",
-            >= 15 => "medium-usage", 
-            >= 5 => "low-usage",
-            _ => "minimal-usage"
+            >= 30 => "bg-gradient-to-r from-error-500 to-error-600",
+            >= 15 => "bg-gradient-to-r from-warning-500 to-warning-600", 
+            >= 5 => "bg-gradient-to-r from-primary-500 to-primary-600",
+            _ => "bg-gradient-to-r from-success-500 to-success-600"
         };
     }
 
@@ -255,74 +298,5 @@ else
             return $"{(int)time.TotalMinutes}m";
         else
             return $"{(int)time.TotalSeconds}s";
-    }
-
-    private RenderFragment RenderAppIcon(string packageName, string appName) => builder =>
-    {
-        var iconDataUrl = GetIconDataUrl(packageName);
-        
-        if (string.IsNullOrEmpty(iconDataUrl))
-        {
-            if (IsIconLoading(packageName))
-            {
-                builder.OpenElement(0, "div");
-                builder.AddAttribute(1, "class", "app-icon-loading");
-                builder.AddContent(2, "⏳");
-                builder.CloseElement();
-            }
-            else
-            {
-                builder.OpenElement(0, "div");
-                builder.AddAttribute(1, "class", "app-icon-fallback");
-                builder.AddContent(2, GetAppInitial(appName));
-                builder.CloseElement();
-            }
-        }
-        else
-        {
-            builder.OpenElement(0, "img");
-builder.AddAttribute(1, "src", iconDataUrl);
-builder.AddAttribute(2, "class", "app-icon");
-builder.AddAttribute(3, "width", 48);
-builder.AddAttribute(4, "height", 48);
-builder.AddAttribute(5, "alt", $"{appName} icon");
-builder.AddAttribute(6, "loading", "lazy");
-builder.CloseElement();
-        }
-        
-    };
-private string? GetIconDataUrl(string packageName)
-{
-    if (IconDataUrls.TryGetValue(packageName, out var cachedUrl))
-        return string.IsNullOrEmpty(cachedUrl) ? null : cachedUrl;
-
-#if ANDROID
-    var base64Icon = com.usagemeter.androidapp.Platforms.Android.UsageStatsHelper.GetAppIcon(packageName);
-    if (!string.IsNullOrEmpty(base64Icon))
-    {
-        var dataUrl = $"data:image/png;base64,{base64Icon}";
-        IconDataUrls.TryAdd(packageName, dataUrl);
-        return dataUrl;
-    }
-    else
-    {
-        IconDataUrls.TryAdd(packageName, "");
-        return null;
-    }
-#else
-    IconDataUrls.TryAdd(packageName, "");
-    return null;
-#endif
-}
-
-    private bool IsIconLoading(string packageName)
-    {
-        return !IconDataUrls.ContainsKey(packageName);
-    }
-
-    private string GetAppInitial(string appName)
-    {
-        if (string.IsNullOrEmpty(appName)) return "?";
-        return appName[0].ToString().ToUpper();
     }
 }

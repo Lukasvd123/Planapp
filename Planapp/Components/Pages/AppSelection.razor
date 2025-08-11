@@ -4,135 +4,217 @@
 @inject NavigationManager Navigation
 @using com.usagemeter.androidapp.Models
 
-<div class="page-header">
-    <h1>📱 @(IsTargetSelection ? "Select Target App" : "Select Apps")</h1>
-    <p class="page-subtitle">
-        @if (IsTargetSelection)
-        {
-            <span>Choose which app to open when the rule triggers</span>
-        }
-        else
-        {
-            <span>Choose which apps to monitor for this rule</span>
-        }
-    </p>
-</div>
-
-<div class="selection-controls">
-    <div class="search-container">
-        <input type="text" class="search-input" placeholder="Search apps..." @bind="SearchQuery" @oninput="OnSearchChanged" />
-        <span class="search-icon">🔍</span>
+<div class="max-w-6xl mx-auto p-6">
+    <!-- Modern Header -->
+    <div class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 mb-3">
+            @if (IsTargetSelection)
+            {
+                <span>🎯 Select Target App</span>
+            }
+            else
+            {
+                <span>📱 Select Apps to Monitor</span>
+            }
+        </h1>
+        <p class="text-lg text-gray-600 max-w-2xl mx-auto">
+            @if (IsTargetSelection)
+            {
+                <span>Choose which app to open when the rule triggers</span>
+            }
+            else
+            {
+                <span>Choose which apps to monitor for this rule</span>
+            }
+        </p>
     </div>
 
-    @if (!IsTargetSelection)
-    {
-        <div class="selection-info">
-            <span class="selection-count">@SelectedApps.Count selected</span>
-            @if (SelectedApps.Count > 0)
+    <!-- Modern Controls -->
+    <div class="card p-6 mb-6">
+        <div class="flex flex-col lg:flex-row gap-4 items-center justify-between">
+            <!-- Search -->
+            <div class="relative flex-1 max-w-md">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span class="text-gray-400">🔍</span>
+                </div>
+                <input type="text"
+                       class="form-input pl-10"
+                       placeholder="Search apps..."
+                       @bind="SearchQuery"
+                       @oninput="OnSearchChanged" />
+            </div>
+
+            <!-- Selection Info -->
+            @if (!IsTargetSelection)
             {
-                <button class="btn-clear" @onclick="ClearSelection">Clear All</button>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <span class="badge badge-primary text-base px-3 py-1">
+                            @SelectedApps.Count selected
+                        </span>
+                        @if (SelectedApps.Count > 0)
+                        {
+                            <button class="btn btn-secondary btn-sm" @onclick="ClearSelection">
+                                Clear All
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    @if (IsLoading)
+    {
+        <div class="card p-8 text-center">
+            <div class="loading-spinner mx-auto mb-4"></div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">Loading...</h3>
+            <p class="text-gray-600">@LoadingMessage</p>
+        </div>
+    }
+    else if (HasError)
+    {
+        <div class="card p-8 text-center bg-error-50 border-error-200">
+            <div class="text-4xl mb-4">❌</div>
+            <h3 class="text-xl font-semibold text-error-900 mb-2">Error Loading</h3>
+            <p class="text-error-700 mb-4">@ErrorMessage</p>
+            <button class="btn btn-error" @onclick="RetryLoad">Retry</button>
+        </div>
+    }
+    else if (Apps == null)
+    {
+        <div class="card p-8 text-center">
+            <div class="loading-spinner mx-auto mb-4"></div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">Loading apps...</h3>
+            <p class="text-gray-600">This may take a moment</p>
+        </div>
+    }
+    else if (FilteredApps.Count == 0)
+    {
+        <div class="card p-8 text-center">
+            <div class="text-4xl mb-4">📱</div>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">No Apps Found</h3>
+            @if (!string.IsNullOrEmpty(SearchQuery))
+            {
+                <p class="text-gray-600 mb-4">No apps match your search for "@SearchQuery"</p>
+                <button class="btn btn-secondary" @onclick="ClearSearch">Clear Search</button>
+            }
+            else
+            {
+                <p class="text-gray-600">No apps could be loaded from your device</p>
             }
         </div>
     }
-</div>
+    else
+    {
+        <!-- Apps Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mb-8">
+            @foreach (var app in FilteredApps)
+            {
+                var isSelected = IsTargetSelection ? (SelectedTargetApp == app.PackageName) : SelectedApps.Contains(app.PackageName);
 
-@if (IsLoading)
-{
-    <div class="loading-card">
-        <div class="loading-spinner"></div>
-        <h3>Loading...</h3>
-        <p>@LoadingMessage</p>
-    </div>
-}
-else if (HasError)
-{
-    <div class="error-card">
-        <div class="error-icon">❌</div>
-        <h3>Error Loading</h3>
-        <p>@ErrorMessage</p>
-        <button class="btn btn-secondary" @onclick="RetryLoad">Retry</button>
-    </div>
-}
-else if (Apps == null)
-{
-    <div class="loading-card">
-        <div class="loading-spinner"></div>
-        <h3>Loading apps...</h3>
-        <p>This may take a moment</p>
-    </div>
-}
-else if (FilteredApps.Count == 0)
-{
-    <div class="no-data-card">
-        <div class="no-data-icon">📱</div>
-        <h3>No Apps Found</h3>
-        @if (!string.IsNullOrEmpty(SearchQuery))
-        {
-            <p>No apps match your search for "@SearchQuery"</p>
-            <button class="btn btn-secondary" @onclick="ClearSearch">Clear Search</button>
-        }
-        else
-        {
-            <p>No apps could be loaded from your device</p>
-        }
-    </div>
-}
-else
-{
-    <div class="apps-grid">
-        @foreach (var app in FilteredApps)
-        {
-            var isSelected = IsTargetSelection ? (SelectedTargetApp == app.PackageName) : SelectedApps.Contains(app.PackageName);
+                <div class="card p-4 cursor-pointer transition-all duration-200 hover:shadow-lg @(isSelected ? "ring-2 ring-primary-500 bg-primary-50" : "hover:bg-gray-50")"
+                     @onclick="() => ToggleApp(app)">
 
-            <div class="app-item @(isSelected ? "selected" : "")" @onclick="() => ToggleApp(app)">
-                <div class="app-icon-container">
-                    @if (app.HasIcon)
-                    {
-                        <img src="data:image/png;base64,@GetHighQualityIcon(app.PackageName, app.IconBase64)"
-                             class="app-icon"
-                             alt="@app.AppName icon"
-                             loading="lazy" />
-                    }
-                    else
-                    {
-                        <div class="app-icon-fallback">
-                            @GetAppInitial(app.AppName)
-                        </div>
-                    }
+                    <!-- App Icon with Badge -->
+                    <div class="relative mb-3 flex justify-center">
+                        <LazyAppIcon PackageName="@app.PackageName"
+                                     AppName="@app.AppName"
+                                     Size="56"
+                                     EnableLazyLoading="true"
+                                     ShowBadge="@isSelected"
+                                     BadgeText="@(IsTargetSelection ? "🎯" : "✓")" />
+                    </div>
 
+                    <!-- App Details -->
+                    <div class="text-center">
+                        <h3 class="font-semibold text-gray-900 text-sm mb-1 line-clamp-2" title="@app.AppName">
+                            @app.AppName
+                        </h3>
+                        <p class="text-xs text-gray-500 truncate" title="@app.PackageName">
+                            @app.PackageName
+                        </p>
+                    </div>
+
+                    <!-- Selection Indicator -->
                     @if (isSelected)
                     {
-                        <div class="selection-indicator">
+                        <div class="mt-2 text-center">
                             @if (IsTargetSelection)
                             {
-                                <span class="target-badge">🎯</span>
+                                <span class="badge badge-warning">Target App</span>
                             }
                             else
                             {
-                                <span class="check-badge">✓</span>
+                                <span class="badge badge-success">Selected</span>
                             }
                         </div>
                     }
                 </div>
+            }
+        </div>
+    }
 
-                <div class="app-details">
-                    <h3 class="app-name" title="@app.AppName">@app.AppName</h3>
-                    <p class="package-name" title="@app.PackageName">@app.PackageName</p>
-                </div>
+    <!-- Bottom Actions -->
+    <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-lg">
+        <div class="max-w-6xl mx-auto flex justify-between items-center gap-4">
+            <button class="btn btn-secondary" @onclick="Cancel">
+                Cancel
+            </button>
+
+            <div class="flex items-center gap-3">
+                @if (!IsTargetSelection && SelectedApps.Count > 0)
+                {
+                    <span class="text-sm text-gray-600">
+                        @SelectedApps.Count app@(SelectedApps.Count == 1 ? "" : "s") selected
+                    </span>
+                }
+                @if (IsTargetSelection && !string.IsNullOrEmpty(SelectedTargetApp))
+                {
+                    <span class="text-sm text-gray-600">
+                        Target app selected
+                    </span>
+                }
+
+                <button class="btn btn-primary btn-lg"
+                        @onclick="SaveSelection"
+                        disabled="@(!IsSelectionValid || IsLoading)">
+                    <span class="text-lg">✅</span>
+                    @if (IsTargetSelection)
+                    {
+                        <span>Set as Target</span>
+                    }
+                    else
+                    {
+                        <span>Add @SelectedApps.Count App@(SelectedApps.Count == 1 ? "" : "s")</span>
+                    }
+                </button>
             </div>
-        }
+        </div>
     </div>
-}
 
-<div class="bottom-actions">
-    <button class="btn btn-secondary" @onclick="Cancel">
-        Cancel
-    </button>
-    <button class="btn btn-primary" @onclick="SaveSelection" disabled="@(!IsSelectionValid || IsLoading)">
-        <span class="btn-icon">✅</span>
-        @(IsTargetSelection ? "Select Target" : $"Select {SelectedApps.Count} Apps")
-    </button>
+    <!-- Bottom Spacer for Fixed Actions -->
+    <div class="h-20"></div>
 </div>
+
+<style>
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .max-w-6xl {
+        max-width: 72rem;
+    }
+
+    .mx-auto {
+        margin-left: auto;
+        margin-right: auto;
+    }
+</style>
 
 @code {
     [Parameter] public string RuleId { get; set; } = "";
@@ -147,7 +229,6 @@ else
     private bool HasError = false;
     private string LoadingMessage = "Loading rule...";
     private string ErrorMessage = "";
-    private Dictionary<string, string> HighQualityIconCache = new();
 
     private bool IsTargetSelection => Navigation.Uri.Contains("/select-target/");
     private bool IsSelectionValid => IsTargetSelection ? !string.IsNullOrEmpty(SelectedTargetApp) : SelectedApps.Count > 0;
@@ -176,30 +257,6 @@ else
             IsLoading = false;
             StateHasChanged();
         }
-    }
-
-    private string GetHighQualityIcon(string packageName, string fallbackIcon)
-    {
-        if (HighQualityIconCache.TryGetValue(packageName, out var cached))
-        {
-            return string.IsNullOrEmpty(cached) ? fallbackIcon : cached;
-        }
-
-#if ANDROID
-        try
-        {
-            var hqIcon = com.usagemeter.androidapp.Platforms.Android.UsageStatsHelper.GetAppIcon(packageName, true);
-            if (!string.IsNullOrEmpty(hqIcon))
-            {
-                HighQualityIconCache[packageName] = hqIcon;
-                return hqIcon;
-            }
-        }
-        catch { }
-#endif
-
-        HighQualityIconCache[packageName] = "";
-        return fallbackIcon;
     }
 
     private async Task LoadCurrentRule()
@@ -364,11 +421,5 @@ else
     private void Cancel()
     {
         Navigation.NavigateTo($"/rules/edit/{RuleId}");
-    }
-
-    private string GetAppInitial(string appName)
-    {
-        if (string.IsNullOrEmpty(appName)) return "?";
-        return appName[0].ToString().ToUpper();
     }
 }

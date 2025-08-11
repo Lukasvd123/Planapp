@@ -2,71 +2,180 @@
 @inject NavigationManager Navigation
 @implements IDisposable
 
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">📱 Usage Meter</a>
-        <!-- Remove this button to avoid conflicts with MainLayout's button -->
-    </div>
+<!-- Brand Header -->
+<div class="flex items-center justify-center p-6 border-b border-white/10">
+    <a class="flex items-center gap-3 text-white no-underline hover:text-white/90 transition-colors" href="">
+        <span class="text-2xl">📱</span>
+        <span class="text-xl font-bold">Usage Meter</span>
+    </a>
 </div>
 
-<div class="nav-scrollable @(CollapseMenu ? "collapse" : "")" @onclick:stopPropagation="true">
-    <nav class="flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All" @onclick="@CloseMenu">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Dashboard
+<!-- Navigation Menu -->
+<div class="flex-1 px-4 py-6 overflow-y-auto @(CollapseMenu ? "hidden lg:block" : "block")" @onclick:stopPropagation="true">
+    <nav class="space-y-2">
+        <!-- Main Navigation -->
+        <div class="space-y-1">
+            <NavLink class="nav-item" href="" Match="NavLinkMatch.All" @onclick="@CloseMenu">
+                <span class="nav-icon">🏠</span>
+                <span class="nav-text">Dashboard</span>
             </NavLink>
-        </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="rules" @onclick="@CloseMenu">
-                <span class="bi bi-rules-nav-menu" aria-hidden="true"></span> Rules
+            <NavLink class="nav-item" href="rules" @onclick="@CloseMenu">
+                <span class="nav-icon">📋</span>
+                <span class="nav-text">Rules</span>
             </NavLink>
-        </div>
 
-        @if (DeviceInfo.Platform == DevicePlatform.Android)
-        {
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="android-usage" @onclick="@CloseMenu">
-                        <span class="bi bi-phone-nav-menu" aria-hidden="true"></span> App Usage
-                    </NavLink>
-                </div>
-        }
+            @if (DeviceInfo.Platform == DevicePlatform.Android)
+            {
+                <NavLink class="nav-item" href="android-usage" @onclick="@CloseMenu">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-text">App Usage</span>
+                </NavLink>
+            }
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="settings" @onclick="@CloseMenu">
-                <span class="bi bi-settings-nav-menu" aria-hidden="true"></span> Settings
+            <NavLink class="nav-item" href="settings" @onclick="@CloseMenu">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-text">Settings</span>
             </NavLink>
         </div>
 
         @{
             var isDebugBuild = false;
 #if DEBUG
-            isDebugBuild = true;
+        isDebugBuild = true;
 #endif
         }
 
         @if (isDebugBuild)
         {
+            <!-- Debug Section -->
+            <div class="pt-6">
                 <div class="nav-section-title">Debug Tools</div>
-
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="rule-test" @onclick="@CloseMenu">
-                        <span class="bi bi-test-nav-menu" aria-hidden="true"></span> Test Rules
+                <div class="space-y-1 mt-3">
+                    <NavLink class="nav-item debug" href="rule-test" @onclick="@CloseMenu">
+                        <span class="nav-icon">🧪</span>
+                        <span class="nav-text">Test Rules</span>
+                    </NavLink>
+                    <NavLink class="nav-item debug" href="launch-test" @onclick="@CloseMenu">
+                        <span class="nav-icon">🚀</span>
+                        <span class="nav-text">Launch Test</span>
+                    </NavLink>
+                    <NavLink class="nav-item debug" href="app-launcher-test" @onclick="@CloseMenu">
+                        <span class="nav-icon">📱</span>
+                        <span class="nav-text">App Launcher</span>
                     </NavLink>
                 </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="launch-test" @onclick="@CloseMenu">
-                        <span class="bi bi-launch-test-nav-menu" aria-hidden="true"></span> Launch Test
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="app-launcher-test" @onclick="@CloseMenu">
-                        <span class="bi bi-launch-test-nav-menu" aria-hidden="true"></span> App Launcher Test
-                    </NavLink>
-                </div>
+            </div>
         }
     </nav>
 </div>
+
+<style>
+    /* Navigation Item Styles */
+    .nav-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        color: rgba(255, 255, 255, 0.8);
+        text-decoration: none;
+        border-radius: 0.5rem;
+        transition: all 0.2s ease;
+        font-weight: 500;
+        position: relative;
+    }
+
+        .nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            text-decoration: none;
+            transform: translateX(4px);
+        }
+
+        .nav-item:focus {
+            outline: 2px solid rgba(255, 255, 255, 0.3);
+            outline-offset: 2px;
+            color: white;
+            text-decoration: none;
+        }
+
+        /* Active state */
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-weight: 600;
+        }
+
+            .nav-item.active::before {
+                content: '';
+                position: absolute;
+                left: 0;
+                top: 0;
+                bottom: 0;
+                width: 3px;
+                background: white;
+                border-radius: 0 2px 2px 0;
+            }
+
+    /* Navigation Icons */
+    .nav-icon {
+        font-size: 1.25rem;
+        flex-shrink: 0;
+        width: 1.5rem;
+        text-align: center;
+    }
+
+    .nav-text {
+        font-size: 0.95rem;
+        line-height: 1;
+    }
+
+    /* Debug items */
+    .nav-item.debug {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 0.9rem;
+    }
+
+        .nav-item.debug:hover {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+    /* Section Title */
+    .nav-section-title {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: rgba(255, 255, 255, 0.5);
+        padding: 0 1rem;
+    }
+
+    /* Mobile adjustments */
+    @media (max-width: 1023px) {
+        .nav-item
+
+    {
+        padding: 1rem;
+        font-size: 1rem;
+    }
+
+    .nav-icon {
+        font-size: 1.5rem;
+        width: 2rem;
+    }
+
+    .nav-text {
+        font-size: 1rem;
+    }
+
+    }
+
+    /* Focus and accessibility */
+    .nav-item:focus-visible {
+        outline: 2px solid rgba(255, 255, 255, 0.8);
+        outline-offset: 2px;
+    }
+</style>
 
 @code {
     [Parameter] public EventCallback OnMenuItemClick { get; set; }
@@ -86,7 +195,6 @@
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
-        // Always close menu on navigation
         InvokeAsync(async () => await OnMenuItemClick.InvokeAsync());
     }
 

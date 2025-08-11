@@ -1,0 +1,181 @@
+@using Microsoft.JSInterop
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+<div class="lazy-app-icon-container" @ref="iconContainer">
+    @if (IsLoading)
+    {
+        <div class="app-icon-loading">
+            <div class="loading-placeholder"></div>
+        </div>
+    }
+    else if (!string.IsNullOrEmpty(CurrentIconSrc))
+    {
+        <img src="@CurrentIconSrc"
+             class="app-icon @(IsHighRes ? "high-res" : "low-res")"
+             alt="@AppName icon"
+             width="@Size"
+             height="@Size"
+             loading="lazy"
+             @onload="OnImageLoad"
+             @onerror="OnImageError" />
+    }
+    else
+    {
+        <div class="app-icon-fallback" style="width: @(Size)px; height: @(Size)px;">
+            @GetAppInitial(AppName)
+        </div>
+    }
+
+    @if (ShowBadge && !string.IsNullOrEmpty(BadgeText))
+    {
+        <div class="icon-badge">@BadgeText</div>
+    }
+</div>
+
+@code {
+    [Parameter] public string PackageName { get; set; } = "";
+    [Parameter] public string AppName { get; set; } = "";
+    [Parameter] public int Size { get; set; } = 48;
+    [Parameter] public bool EnableLazyLoading { get; set; } = true;
+    [Parameter] public bool ShowBadge { get; set; } = false;
+    [Parameter] public string BadgeText { get; set; } = "";
+    [Parameter] public string CssClass { get; set; } = "";
+
+    private ElementReference iconContainer;
+    private IJSObjectReference? intersectionObserver;
+    private bool IsLoading = true;
+    private bool IsVisible = false;
+    private bool IsHighRes = false;
+    private string CurrentIconSrc = "";
+    private bool HasError = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && EnableLazyLoading)
+        {
+            try
+            {
+                // Initialize intersection observer for lazy loading
+                intersectionObserver = await JSRuntime.InvokeAsync<IJSObjectReference>(
+                    "import", "./js/intersection-observer.js");
+
+                await intersectionObserver.InvokeVoidAsync("observe",
+                    iconContainer,
+                    DotNetObjectReference.Create(this));
+            }
+            catch (Exception ex)
+            {
+                // Fallback to immediate loading if JS fails
+                System.Diagnostics.Debug.WriteLine($"Intersection observer failed, falling back: {ex.Message}");
+                await LoadIcon(false);
+            }
+        }
+        else if (firstRender && !EnableLazyLoading)
+        {
+            // Load immediately if lazy loading is disabled
+            await LoadIcon(false);
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnIntersection(bool isIntersecting)
+    {
+        if (isIntersecting && !IsVisible)
+        {
+            IsVisible = true;
+            await LoadIcon(false); // Load low-res first
+            StateHasChanged();
+
+            // Load high-res after a short delay
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(500); // Give low-res time to load
+                await LoadIcon(true); // Then load high-res
+                await InvokeAsync(StateHasChanged);
+            });
+        }
+    }
+
+    private async Task LoadIcon(bool highQuality)
+    {
+        if (string.IsNullOrEmpty(PackageName))
+        {
+            IsLoading = false;
+            return;
+        }
+
+        try
+        {
+            var iconData = GetAppIcon(PackageName, highQuality);
+
+            if (!string.IsNullOrEmpty(iconData))
+            {
+                CurrentIconSrc = $"data:image/png;base64,{iconData}";
+                IsHighRes = highQuality;
+                HasError = false;
+            }
+            else if (!highQuality)
+            {
+                // If no low-res icon found, show fallback
+                CurrentIconSrc = "";
+                HasError = true;
+            }
+
+            IsLoading = false;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error loading icon for {PackageName}: {ex.Message}");
+            if (!highQuality)
+            {
+                CurrentIconSrc = "";
+                HasError = true;
+                IsLoading = false;
+            }
+        }
+    }
+
+    private string GetAppIcon(string packageName, bool highQuality)
+    {
+#if ANDROID
+        return com.usagemeter.androidapp.Platforms.Android.UsageStatsHelper.GetAppIcon(packageName, highQuality);
+#else
+        return "";
+#endif
+    }
+
+    private void OnImageLoad()
+    {
+        HasError = false;
+    }
+
+    private void OnImageError()
+    {
+        HasError = true;
+        CurrentIconSrc = "";
+        StateHasChanged();
+    }
+
+    private string GetAppInitial(string appName)
+    {
+        if (string.IsNullOrEmpty(appName)) return "?";
+        return appName[0].ToString().ToUpper();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (intersectionObserver != null)
+            {
+                await intersectionObserver.InvokeVoidAsync("disconnect");
+                await intersectionObserver.DisposeAsync();
+            }
+        }
+        catch
+        {
+            // Ignore disposal errors
+        }
+    }
+}

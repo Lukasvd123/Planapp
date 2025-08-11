@@ -1,0 +1,185 @@
+/* Lazy App Icon Component Styles */
+.lazy-app-icon-container {
+    position: relative;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+/* Loading State */
+.app-icon-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
+}
+
+.loading-placeholder {
+    width: 24px;
+    height: 24px;
+    border: 2px solid #e0e0e0;
+    border-top: 2px solid #667eea;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* App Icon Styles */
+.app-icon {
+    border-radius: 12px;
+    object-fit: cover;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    display: block;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    background: #f8f9fa;
+}
+
+    .app-icon:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    /* Low-res to high-res transition */
+    .app-icon.low-res {
+        filter: blur(0.5px);
+        opacity: 0.9;
+        transition: filter 0.3s ease, opacity 0.3s ease;
+    }
+
+    .app-icon.high-res {
+        filter: none;
+        opacity: 1;
+    }
+
+/* Fallback Icon */
+.app-icon-fallback {
+    border-radius: 12px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 1.2rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+    .app-icon-fallback:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+/* Badge */
+.icon-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ff4757;
+    color: white;
+    border-radius: 50%;
+    min-width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    z-index: 1;
+}
+
+/* Size Variants */
+.lazy-app-icon-container.size-small .app-icon,
+.lazy-app-icon-container.size-small .app-icon-fallback,
+.lazy-app-icon-container.size-small .app-icon-loading {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+}
+
+.lazy-app-icon-container.size-small .app-icon-fallback {
+    font-size: 0.9rem;
+}
+
+.lazy-app-icon-container.size-small .icon-badge {
+    width: 16px;
+    height: 16px;
+    font-size: 0.6rem;
+    top: -6px;
+    right: -6px;
+}
+
+.lazy-app-icon-container.size-large .app-icon,
+.lazy-app-icon-container.size-large .app-icon-fallback,
+.lazy-app-icon-container.size-large .app-icon-loading {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+}
+
+.lazy-app-icon-container.size-large .app-icon-fallback {
+    font-size: 1.5rem;
+}
+
+.lazy-app-icon-container.size-large .icon-badge {
+    width: 24px;
+    height: 24px;
+    font-size: 0.8rem;
+    top: -10px;
+    right: -10px;
+}
+
+/* Performance optimizations */
+.app-icon {
+    will-change: transform;
+    transform: translateZ(0); /* Hardware acceleration */
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .app-icon,
+    .app-icon-fallback,
+    .loading-placeholder {
+        transition: none !important;
+        animation: none !important;
+    }
+
+        .app-icon:hover,
+        .app-icon-fallback:hover {
+            transform: none !important;
+        }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+    .app-icon,
+    .app-icon-fallback {
+        border: 2px solid #000;
+    }
+
+    .icon-badge {
+        border: 2px solid #fff;
+    }
+}
+
+/* Dark mode adjustments (if needed) */
+@media (prefers-color-scheme: dark) {
+    .app-icon {
+        background: #2a2a2a;
+    }
+
+    .loading-placeholder {
+        border-color: #555;
+        border-top-color: #667eea;
+    }
+}
