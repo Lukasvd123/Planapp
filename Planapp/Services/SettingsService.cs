@@ -14,17 +14,24 @@ namespace com.usagemeter.androidapp.Services
 
     public class AppSettings
     {
-        public string HomeAppPackage { get; set; } = "com.android.launcher3"; // Default Android launcher
+        public string HomeAppPackage { get; set; } = "com.android.launcher3";
         public string HomeAppName { get; set; } = "Default Launcher";
         public bool AllRulesEnabled { get; set; } = true;
-        public string ThemeColor { get; set; } = "#667eea"; // Default purple
-        public string AccentColor { get; set; } = "#764ba2";
+        public string ThemeColor { get; set; } = "#6200ea"; // Material Purple
+        public string AccentColor { get; set; } = "#03dac6"; // Material Teal
         public int DefaultBlockDurationMinutes { get; set; } = 5;
         public int DefaultBlockDurationSeconds { get; set; } = 0;
         public bool ShowNotifications { get; set; } = true;
         public bool VibrationEnabled { get; set; } = true;
         public bool SoundEnabled { get; set; } = true;
-        public string BlockingMode { get; set; } = "Timer"; // "Timer", "Instant", "Choice"
+        public string BlockingMode { get; set; } = "Timer";
+
+        // Debug Settings
+        public bool DebugMode { get; set; } = false;
+        public bool ShowDebugNotifications { get; set; } = false;
+        public bool VerboseLogging { get; set; } = false;
+        public bool ShowAppLaunchNotifications { get; set; } = false;
+        public bool ShowRuleCheckNotifications { get; set; } = false;
     }
 
     public class SettingsService : ISettingsService

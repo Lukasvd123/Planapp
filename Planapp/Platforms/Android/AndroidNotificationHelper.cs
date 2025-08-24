@@ -5,6 +5,7 @@ using Android.OS;
 using AndroidApp = Android.App.Application;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using com.usagemeter.androidapp.Services;
 
 namespace com.usagemeter.androidapp.Platforms.Android
 {
@@ -14,9 +15,14 @@ namespace com.usagemeter.androidapp.Platforms.Android
         private const string CHANNEL_NAME = "Usage Meter Debug";
         private const int BASE_NOTIFICATION_ID = 1001;
 
-        // Track notifications for auto-cleanup
         private static readonly ConcurrentDictionary<int, DateTime> ActiveNotifications = new();
         private static System.Threading.Timer? CleanupTimer;
+        private static ISettingsService? _settingsService;
+
+        public static void Initialize(ISettingsService settingsService)
+        {
+            _settingsService = settingsService;
+        }
 
         public static void InitializeNotificationChannel()
         {
@@ -33,22 +39,20 @@ namespace com.usagemeter.androidapp.Platforms.Android
                     var existingChannel = notificationManager.GetNotificationChannel(CHANNEL_ID);
                     if (existingChannel != null) return;
 
-                    var channel = new NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationImportance.Default)
+                    var channel = new NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationImportance.Low)
                     {
-                        Description = "Debug notifications for Usage Meter with auto-cleanup"
+                        Description = "Debug notifications for Usage Meter"
                     };
 
                     notificationManager.CreateNotificationChannel(channel);
-
-                    // Start cleanup timer for 1-minute auto-delete
                     StartCleanupTimer();
 
-                    System.Diagnostics.Debug.WriteLine("✅ Notification channel created with auto-cleanup");
+                    DebugLog("✅ Notification channel created");
                 }
             }
             catch (System.Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"❌ Error creating notification channel: {ex.Message}");
+                DebugLog($"❌ Error creating notification channel: {ex.Message}");
             }
         }
 
@@ -74,11 +78,11 @@ namespace com.usagemeter.androidapp.Platforms.Android
 
                 foreach (var kvp in ActiveNotifications)
                 {
-                    if ((now - kvp.Value).TotalMinutes >= 1) // 1 minute old
+                    if ((now - kvp.Value).TotalMinutes >= 1)
                     {
                         notificationManager.Cancel(kvp.Key);
                         toRemove.Add(kvp.Key);
-                        System.Diagnostics.Debug.WriteLine($"🧹 Auto-cleaned notification {kvp.Key}");
+                        DebugLog($"🧹 Auto-cleaned notification {kvp.Key}");
                     }
                 }
 
@@ -89,25 +93,27 @@ namespace com.usagemeter.androidapp.Platforms.Android
             }
             catch (System.Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"❌ Error cleaning notifications: {ex.Message}");
+                DebugLog($"❌ Error cleaning notifications: {ex.Message}");
             }
         }
 
-        public static void ShowAppLaunchNotification(string title, string content)
+        public static async void ShowAppLaunchNotification(string title, string content)
         {
+            if (!await ShouldShowDebugNotification("app_launch")) return;
+
             try
             {
                 var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
                 if (context == null)
                 {
-                    System.Diagnostics.Debug.WriteLine("❌ Context is null, cannot show notification");
+                    DebugLog("❌ Context is null, cannot show notification");
                     return;
                 }
 
                 var notificationManager = NotificationManager.FromContext(context);
                 if (notificationManager == null)
                 {
-                    System.Diagnostics.Debug.WriteLine("❌ NotificationManager is null");
+                    DebugLog("❌ NotificationManager is null");
                     return;
                 }
 
@@ -118,11 +124,10 @@ namespace com.usagemeter.androidapp.Platforms.Android
                     .SetContentTitle($"🔍 {title}")
                     .SetContentText(content)
                     .SetStyle(new NotificationCompat.BigTextStyle()
-                        .BigText($"{content}\n⏰ {DateTime.Now:HH:mm:ss} (Auto-expires in 1 min)"))
-                    .SetPriority(NotificationCompat.PriorityDefault)
+                        .BigText($"{content}\n⏰ {DateTime.Now:HH:mm:ss}"))
+                    .SetPriority(NotificationCompat.PriorityLow)
                     .SetAutoCancel(true)
-                    .SetDefaults(NotificationCompat.DefaultSound)
-                    .SetTimeoutAfter(60000); // 1 minute timeout
+                    .SetTimeoutAfter(60000);
 
                 var intent = new Intent(context, typeof(MainActivity));
                 intent.SetFlags(ActivityFlags.ClearTop | ActivityFlags.SingleTop);
@@ -134,22 +139,21 @@ namespace com.usagemeter.androidapp.Platforms.Android
                         PendingIntentFlags.UpdateCurrent);
 
                 builder.SetContentIntent(pendingIntent);
-
                 notificationManager.Notify(notificationId, builder.Build());
-
-                // Track for cleanup
                 ActiveNotifications.TryAdd(notificationId, DateTime.Now);
 
-                System.Diagnostics.Debug.WriteLine($"📱 Debug notification shown: {title} - {content}");
+                DebugLog($"📱 Debug notification shown: {title} - {content}");
             }
             catch (System.Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"❌ Error showing notification: {ex.Message}");
+                DebugLog($"❌ Error showing notification: {ex.Message}");
             }
         }
 
-        public static void ShowRuleTriggeredNotification(string ruleName, string appName)
+        public static async void ShowRuleTriggeredNotification(string ruleName, string appName)
         {
+            if (!await ShouldShowDebugNotification("rule_trigger")) return;
+
             try
             {
                 var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
@@ -165,27 +169,27 @@ namespace com.usagemeter.androidapp.Platforms.Android
                     .SetContentTitle($"🚨 Rule Triggered: {ruleName}")
                     .SetContentText($"Blocked {appName} - limit exceeded")
                     .SetStyle(new NotificationCompat.BigTextStyle()
-                        .BigText($"Rule: {ruleName}\nBlocked: {appName}\nTime: {DateTime.Now:HH:mm:ss}\n\n⚠️ Usage limit exceeded (Auto-expires in 1 min)"))
+                        .BigText($"Rule: {ruleName}\nBlocked: {appName}\nTime: {DateTime.Now:HH:mm:ss}"))
                     .SetPriority(NotificationCompat.PriorityHigh)
                     .SetAutoCancel(true)
                     .SetDefaults(NotificationCompat.DefaultAll)
-                    .SetTimeoutAfter(60000); // 1 minute timeout
+                    .SetTimeoutAfter(60000);
 
                 notificationManager.Notify(notificationId, builder.Build());
-
-                // Track for cleanup
                 ActiveNotifications.TryAdd(notificationId, DateTime.Now);
 
-                System.Diagnostics.Debug.WriteLine($"🚨 Rule notification shown: {ruleName} blocked {appName}");
+                DebugLog($"🚨 Rule notification shown: {ruleName} blocked {appName}");
             }
             catch (System.Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"❌ Error showing rule notification: {ex.Message}");
+                DebugLog($"❌ Error showing rule notification: {ex.Message}");
             }
         }
 
-        public static void ShowCurrentAppNotification(string currentApp, bool isMonitored)
+        public static async void ShowCurrentAppNotification(string currentApp, bool isMonitored)
         {
+            if (!await ShouldShowDebugNotification("app_monitor")) return;
+
             try
             {
                 var context = Platform.CurrentActivity?.ApplicationContext ?? AndroidApp.Context;
@@ -206,22 +210,20 @@ namespace com.usagemeter.androidapp.Platforms.Android
                     .SetContentTitle(title)
                     .SetContentText(content)
                     .SetStyle(new NotificationCompat.BigTextStyle()
-                        .BigText($"Current app: {currentApp}\nStatus: {status}\nTime: {DateTime.Now:HH:mm:ss}\n\n(Auto-expires in 1 min)"))
+                        .BigText($"Current app: {currentApp}\nStatus: {status}\nTime: {DateTime.Now:HH:mm:ss}"))
                     .SetPriority(NotificationCompat.PriorityLow)
                     .SetAutoCancel(true)
                     .SetOngoing(false)
-                    .SetTimeoutAfter(60000); // 1 minute timeout
+                    .SetTimeoutAfter(60000);
 
                 notificationManager.Notify(notificationId, builder.Build());
-
-                // Track for cleanup
                 ActiveNotifications.TryAdd(notificationId, DateTime.Now);
 
-                System.Diagnostics.Debug.WriteLine($"📱 Current app notification: {currentApp} ({status})");
+                DebugLog($"📱 Current app notification: {currentApp} ({status})");
             }
             catch (System.Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"❌ Error showing current app notification: {ex.Message}");
+                DebugLog($"❌ Error showing current app notification: {ex.Message}");
             }
         }
 
@@ -238,11 +240,55 @@ namespace com.usagemeter.androidapp.Platforms.Android
                 notificationManager.CancelAll();
                 ActiveNotifications.Clear();
 
-                System.Diagnostics.Debug.WriteLine("🧹 All notifications cleared");
+                DebugLog("🧹 All notifications cleared");
             }
             catch (System.Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"❌ Error clearing notifications: {ex.Message}");
+                DebugLog($"❌ Error clearing notifications: {ex.Message}");
+            }
+        }
+
+        private static async Task<bool> ShouldShowDebugNotification(string type)
+        {
+            try
+            {
+                if (_settingsService == null) return false;
+
+                var settings = await _settingsService.GetSettingsAsync();
+
+                if (!settings.DebugMode || !settings.ShowDebugNotifications)
+                    return false;
+
+                return type switch
+                {
+                    "app_launch" => settings.ShowAppLaunchNotifications,
+                    "rule_trigger" => settings.ShowRuleCheckNotifications,
+                    "app_monitor" => settings.ShowAppLaunchNotifications,
+                    _ => false
+                };
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static async void DebugLog(string message)
+        {
+            try
+            {
+                if (_settingsService != null)
+                {
+                    var settings = await _settingsService.GetSettingsAsync();
+                    if (settings.DebugMode && settings.VerboseLogging)
+                    {
+                        System.Diagnostics.Debug.WriteLine(message);
+                    }
+                }
+            }
+            catch
+            {
+                // Fail silently
             }
         }
 
@@ -287,7 +333,7 @@ namespace com.usagemeter.androidapp.Platforms.Android
             }
             catch (System.Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"❌ Error requesting notification permission: {ex.Message}");
+                DebugLog($"❌ Error requesting notification permission: {ex.Message}");
             }
         }
     }
